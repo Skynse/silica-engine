@@ -32,7 +32,9 @@ impl NodeVirtual for GDWorld {
     }
 }
 
+#[godot_api]
 impl GDWorld {
+    #[func]
     pub fn get_data(&self) -> PackedByteArray {
         let mut data = PackedByteArray::new();
         data.resize(self.world.width as usize * self.world.height as usize * 4);
