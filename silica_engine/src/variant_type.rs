@@ -1,5 +1,5 @@
 use crate::variant::Variant;
-pub const VARIANT_COUNT: usize = 5;
+pub const VARIANT_COUNT: usize = 6;
 
 #[derive(PartialEq, Eq)]
 pub struct VariantType {
@@ -59,5 +59,12 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         color: (0xFF, 0x00, 0x00),
         source_variant: Variant::Fire,
         variant_property: VariantProperty::Gas,
+    },
+    // 5 GOL
+    VariantType {
+        weight: 0,
+        color: (0xFF, 0xFF, 0xFF),
+        source_variant: Variant::GOL,
+        variant_property: VariantProperty::Solid,
     },
 ];
