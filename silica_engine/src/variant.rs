@@ -44,6 +44,18 @@ impl VariantTrait for Sand {
             api.set(dx - 1, 1, particle);
             api.set(0, 0, EMPTY_CELL);
         }
+
+        //handle wall collision
+        let nl = api.get(-1, 0);
+        let nr = api.get(1, 0);
+
+        if nl.variant == Variant::Wall {
+            api.set(1, 0, particle);
+            api.set(0, 0, EMPTY_CELL);
+        } else if nr.variant == Variant::Wall {
+            api.set(-1, 0, particle);
+            api.set(0, 0, EMPTY_CELL);
+        }
     }
 }
 
