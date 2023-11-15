@@ -10,8 +10,8 @@ pub struct World {
     pub(crate) ambient_pressure: u8,
     pub(crate) ambient_wind: u8,
 
-    pub width: i32,
-    pub height: i32,
+    pub width: usize,
+    pub height: usize,
     pub running: bool,
 }
 
@@ -27,12 +27,19 @@ impl World {
             for x in 0..self.width {
                 for y in 0..self.height {
                     let particle = self.get(x, y);
-                    particle.update(API { world: self, x, y });
+                    particle.variant.update(
+                        particle,
+                        API {
+                            world: self,
+                            x: x as i32,
+                            y: y as i32,
+                        },
+                    );
                 }
             }
         }
     }
-    pub fn new(width: i32, height: i32) -> World {
+    pub fn new(width: usize, height: usize) -> World {
         let mut particles = Vec::new();
         for _ in 0..width * height {
             particles.push(Particle::new(Variant::Empty, 0, 0));
@@ -43,7 +50,7 @@ impl World {
             ambient_pressure: 0,
             ambient_wind: 0,
             width: width,
-            height,
+            height: height,
             running: true,
         }
     }
@@ -52,11 +59,11 @@ impl World {
         self.particles.as_ptr()
     }
 
-    pub fn get(&self, x: i32, y: i32) -> Particle {
+    pub fn get(&self, x: usize, y: usize) -> Particle {
         if x >= self.width || y >= self.height {
             return EMPTY_CELL;
         }
-        return self.particles[x as usize + y as usize * self.width as usize];
+        self.particles[x as usize + y as usize * self.width]
     }
 
     pub fn reset(&mut self) {
@@ -68,15 +75,14 @@ impl World {
 
 impl World {
     pub fn get_idx(&self, x: i32, y: i32) -> usize {
-        (x + y * self.width) as usize
+        (x + y * self.width as i32) as usize
     }
 
     pub fn get_particle(&self, x: i32, y: i32) -> Particle {
-        if x < 0 || x >= self.width - 1 || y < 0 || y >= self.height - 1 {
+        if x >= self.width as i32 || y >= self.height as i32 {
             return Particle::new(Variant::Empty, 0, 0);
         }
-
-        self.particles[self.width as usize * y as usize + x as usize]
+        self.particles[self.width * y as usize + x as usize]
     }
 
     pub fn get_particle_mut(&mut self, x: i32, y: i32) -> &mut Particle {
@@ -103,6 +109,7 @@ impl World {
         self.particles[idx] = particle;
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

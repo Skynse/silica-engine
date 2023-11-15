@@ -1,4 +1,11 @@
 use rand::Rng;
+use std::convert::TryInto;
+
+fn example_function() {
+    let my_usize: usize = 42;
+    let my_i32: i32 = my_usize.try_into().unwrap();
+    println!("my_i32: {}", my_i32);
+}
 
 use crate::{
     particle::{self, Particle},
@@ -17,11 +24,17 @@ impl<'a> API<'a> {
         let nx = self.x + dx;
         let ny = self.y + dy;
 
-        if nx < 0 || nx >= self.world.width - 1 || ny < 0 || ny >= self.world.height - 1 {
+        if nx < 0
+            || nx >= (self.world.width - 1).try_into().unwrap()
+            || ny < 0
+            || ny >= (self.world.height - 1).try_into().unwrap()
+        {
             return;
         }
 
-        let idx = self.world.get_idx(nx, ny);
+        let idx = self
+            .world
+            .get_idx(nx.try_into().unwrap(), ny.try_into().unwrap());
         self.world.particles[idx] = particle;
     }
 
@@ -48,12 +61,20 @@ impl<'a> API<'a> {
         let nx = self.x + dx;
         let ny = self.y + dy;
 
-        if nx < 0 || nx >= self.world.width - 1 || ny < 0 || ny >= self.world.height - 1 {
+        if nx < 0
+            || nx >= (self.world.width - 1).try_into().unwrap()
+            || ny < 0
+            || ny >= (self.world.height - 1).try_into().unwrap()
+        {
             return;
         }
 
-        let idx = self.world.get_idx(self.x, self.y);
-        let nidx = self.world.get_idx(nx, ny);
+        let idx = self
+            .world
+            .get_idx(self.x.try_into().unwrap(), self.y.try_into().unwrap());
+        let nidx = self
+            .world
+            .get_idx(nx.try_into().unwrap(), ny.try_into().unwrap());
 
         let tmp = self.world.particles[idx];
         self.world.particles[idx] = self.world.particles[nidx];
@@ -64,17 +85,20 @@ impl<'a> API<'a> {
         let nx = self.x + dx;
         let ny = self.y + dy;
 
-        if nx < 0 || nx >= self.world.width - 1 || ny < 0 || ny >= self.world.height - 1 {
+        if nx < 0
+            || nx >= (self.world.width - 1).try_into().unwrap()
+            || ny < 0
+            || ny >= (self.world.height - 1).try_into().unwrap()
+        {
             return Particle::new(Variant::Empty, 0, 0);
         }
-        self.world.get(nx, ny)
+        self.world
+            .get(nx.try_into().unwrap(), ny.try_into().unwrap())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::fmt::format;
-
     use crate::world::World;
 
     use super::*;
