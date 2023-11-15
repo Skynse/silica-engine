@@ -36,6 +36,7 @@ pub fn particle_to_color(variant: Variant) -> (u8, u8, u8) {
         Variant::Sand => VARIANTS[2].color,
         Variant::Water => VARIANTS[3].color,
         Variant::Fire => VARIANTS[4].color,
+        Variant::GOL => (255, 255, 255),
     };
 
     res
