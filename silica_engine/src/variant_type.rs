@@ -65,7 +65,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
     VariantType {
         weight: 32,
         strength: 0,
-        color: (0x00, 0x00, 0xFF),
+        color: crate::BLUE,
         source_variant: Variant::Water,
         variant_property: VariantProperty::Liquid,
         flags: 0,
