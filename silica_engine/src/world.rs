@@ -1,7 +1,12 @@
+use std::collections::HashSet;
+
+use variant_type::{variant_type, VariantProperty};
+
 use crate::{
     api::API,
     particle::{self, Particle},
     variant::{Variant, EMPTY_CELL},
+    variant_type,
 };
 
 #[derive(Clone, Copy, PartialEq)]
@@ -18,6 +23,8 @@ pub struct World {
     pub height: i32,
     pub running: bool,
     pub generation: u8,
+    pub modified_indices: HashSet<usize>,
+    pub cleared: bool,
 }
 
 impl Default for World {
@@ -28,6 +35,8 @@ impl Default for World {
 
 impl World {
     pub fn tick(&mut self) {
+        self.cleared = false;
+        self.modified_indices = HashSet::new();
         if self.running {
             //wind
             self.paint_variants();
@@ -47,6 +56,7 @@ impl World {
                 }
             }
 
+            /*
             for x in 0..self.width {
                 let scanx = if self.generation % 2 == 0 {
                     self.width - (x + 1)
@@ -66,11 +76,101 @@ impl World {
                     );
                 }
             }
+            */
+
+            // take iterator instead
+
+            // iterate in reverse order
+            for x in (0..self.width).rev() {
+                for y in (0..self.height).rev() {
+                    let idx = self.get_idx(x as i32, y as i32);
+                    let left_to_right: bool = rand::random();
+                    let particle = self.get_particle(x as i32, y as i32);
+
+                    World::update_particle(
+                        particle,
+                        API {
+                            world: self,
+                            x: x as i32,
+                            y: y as i32,
+                        },
+                    );
+                }
+            }
         }
+
         self.generation = self.generation.wrapping_add(1);
+        self.modified_indices.clear();
     }
 
-    fn update_particle(particle: Particle, api: API) {
+    pub fn needs_update(&self) -> bool {
+        self.cleared || !self.modified_indices.is_empty()
+    }
+
+    pub fn pause(&mut self) {
+        self.running = false;
+    }
+
+    pub fn resume(&mut self) {
+        self.running = true;
+    }
+
+    fn update_particle(particle: Particle, mut api: API) {
+        if particle.variant == Variant::Empty {
+            return;
+        }
+        println!("{:?}", particle.variant);
+        match variant_type::variant_type(particle.variant).variant_property {
+            VariantProperty::Powder => {
+                // super basic falling sand impl
+                let below = api.get(0, 1);
+                let left = api.get(-1, 1);
+                let right = api.get(1, 1);
+                if below.variant == Variant::Empty {
+                    api.set(0, 1, particle);
+                    api.set(0, 0, EMPTY_CELL);
+                    return;
+                }
+
+                if below.variant == Variant::Water {
+                    api.set(0, 1, particle);
+                    api.set(0, 0, EMPTY_CELL);
+                    return;
+                }
+
+                if below.variant == Variant::SaltWater {
+                    api.set(0, 1, particle);
+                    api.set(0, 0, EMPTY_CELL);
+                    return;
+                }
+            }
+
+            VariantProperty::Liquid => {
+                // super basic falling sand impl
+                let below = api.get(0, 1);
+                let left = api.get(-1, 1);
+                let right = api.get(1, 1);
+                if below.variant == Variant::Empty {
+                    api.set(0, 1, particle);
+                    api.set(0, 0, EMPTY_CELL);
+                    return;
+                }
+
+                if below.variant == Variant::Water {
+                    api.set(0, 1, particle);
+                    api.set(0, 0, EMPTY_CELL);
+                    return;
+                }
+
+                if below.variant == Variant::SaltWater {
+                    api.set(0, 1, particle);
+                    api.set(0, 0, EMPTY_CELL);
+                    return;
+                }
+            }
+
+            _ => (),
+        }
         particle.variant.update(particle, api);
     }
 
@@ -104,6 +204,8 @@ impl World {
             height: height,
             running: true,
             generation: 0,
+            modified_indices: HashSet::new(),
+            cleared: false,
         }
     }
 
@@ -115,6 +217,8 @@ impl World {
         for particle in self.particles.iter_mut() {
             *particle = Particle::new(Variant::Empty, 0, 0);
         }
+        self.cleared = true;
+        self.modified_indices.clear();
     }
 }
 
@@ -196,6 +300,7 @@ impl World {
             return;
         }
         self.particles[idx] = Particle::new(variant, 0, 0);
+        self.modified_indices.insert(idx);
     }
 
     pub fn set(&mut self, x: i32, y: i32, particle: Particle) {

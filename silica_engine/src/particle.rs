@@ -45,6 +45,13 @@ pub fn particle_to_color(variant: Variant) -> (u8, u8, u8) {
 
     res
 }
+pub fn vary_color(color: (u8, u8, u8), variance: u8) -> (u8, u8, u8) {
+    let mut rng = rand::thread_rng();
+    let r = rng.gen_range(color.0.saturating_sub(variance)..=color.0.saturating_add(variance));
+    let g = rng.gen_range(color.1.saturating_sub(variance)..=color.1.saturating_add(variance));
+    let b = rng.gen_range(color.2.saturating_sub(variance)..=color.2.saturating_add(variance));
+    (r, g, b)
+}
 
 pub fn interpolate(
     color_1: &(u8, u8, u8),

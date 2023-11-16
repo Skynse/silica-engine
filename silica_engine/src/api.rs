@@ -36,9 +36,23 @@ impl<'a> API<'a> {
         self.world.tick();
     }
 
+    pub fn swap(&mut self, idx0: usize, idx2: usize) {
+        let tmp = self.world.particles[idx0];
+        self.world.particles[idx0] = self.world.particles[idx2];
+        self.world.particles[idx2] = tmp;
+    }
+
+    pub fn get_from_idx(&mut self, idx: usize) -> Particle {
+        self.world.particles[idx]
+    }
+
     pub fn get_fluid(&mut self) -> Wind {
         let idx = self.world.get_idx(self.x, self.y);
         self.world.wind[idx]
+    }
+
+    pub fn get_idx(&mut self, x: i32, y: i32) -> usize {
+        self.world.get_idx(x, y)
     }
 
     pub fn set_fluid(&mut self, dx: i32, dy: i32) {
