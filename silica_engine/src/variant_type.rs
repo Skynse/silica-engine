@@ -42,7 +42,8 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
     // 2 Sand
     VariantType {
         weight: 0,
-        color: (0xFF, 0xFF, 0x00),
+        // peach brown
+        color: (0xFF, 0xCC, 0x99),
         source_variant: Variant::Sand,
         variant_property: VariantProperty::Powder,
     },

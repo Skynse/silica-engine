@@ -36,6 +36,11 @@ impl<'a> API<'a> {
             .world
             .get_idx(nx.try_into().unwrap(), ny.try_into().unwrap());
         self.world.particles[idx] = particle;
+
+        // make sure particle does not go out of bounds
+        if self.x < 0 {
+            self.x = 0;
+        }
     }
 
     pub fn update_world(&mut self) {

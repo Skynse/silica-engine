@@ -17,7 +17,7 @@ pub struct World {
 
 impl Default for World {
     fn default() -> Self {
-        Self::new(100, 100)
+        Self::new(256, 256)
     }
 }
 
@@ -40,10 +40,7 @@ impl World {
         }
     }
     pub fn new(width: usize, height: usize) -> World {
-        let mut particles = Vec::new();
-        for _ in 0..width * height {
-            particles.push(Particle::new(Variant::Empty, 0, 0));
-        }
+        let mut particles = vec![EMPTY_CELL; width * height];
         World {
             particles,
             ambient_heat: 0,
