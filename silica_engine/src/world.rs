@@ -30,24 +30,24 @@ impl World {
     pub fn tick(&mut self) {
         if self.running {
             //wind
-
-            for x in 0..self.width {
-                for y in 0..self.height {
-                    let idx = self.get_idx(x as i32, y as i32);
-                    let particle = self.get_particle(x as i32, y as i32);
-                    let wind = self.get_wind(x as i32, y as i32);
-                    World::blow_wind(
-                        particle,
-                        wind,
-                        API {
-                            world: self,
-                            x: x as i32,
-                            y: y as i32,
-                        },
-                    );
-                }
-            }
-
+            /*
+                        for x in 0..self.width {
+                            for y in 0..self.height {
+                                let idx = self.get_idx(x as i32, y as i32);
+                                let particle = self.get_particle(x as i32, y as i32);
+                                let wind = self.get_wind(x as i32, y as i32);
+                                World::blow_wind(
+                                    particle,
+                                    wind,
+                                    API {
+                                        world: self,
+                                        x: x as i32,
+                                        y: y as i32,
+                                    },
+                                );
+                            }
+                        }
+            */
             for x in 0..self.width {
                 let scanx = if self.generation % 2 == 0 {
                     self.width - (x + 1)
@@ -72,9 +72,11 @@ impl World {
     }
 
     fn update_particle(particle: Particle, api: API) {
+        /*
         if particle.clock - api.world.generation == 1 {
             return;
         }
+        */
         particle.variant.update(particle, api);
     }
     pub fn new(width: i32, height: i32) -> World {

@@ -27,7 +27,6 @@ impl<'a> API<'a> {
             return;
         }
         let idx = self.world.get_idx(nx, ny);
-        particle.clock += 1;
 
         self.world.particles[idx] = particle;
         self.world.particles[idx].clock = self.world.generation.wrapping_add(1);
