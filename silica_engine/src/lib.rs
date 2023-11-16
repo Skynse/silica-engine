@@ -6,7 +6,8 @@ pub mod variant;
 pub mod variant_type;
 pub mod world;
 
-pub const BLUE: (u8, u8, u8) = (0x00, 0x00, 0xFF);
+//BLUE but not strikingly blue
+pub const BLUE: (u8, u8, u8) = (101, 131, 181);
 pub const RED: (u8, u8, u8) = (0xFF, 0x00, 0x00);
 pub const GREEN: (u8, u8, u8) = (0x00, 0xFF, 0x00);
 pub const YELLOW: (u8, u8, u8) = (0xFF, 0xFF, 0x00);
