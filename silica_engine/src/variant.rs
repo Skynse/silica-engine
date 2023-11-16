@@ -3,12 +3,15 @@ use crate::{
     particle::Particle,
     variant_type::{variant_type, VariantProperty, VARIANTS},
 };
+
 pub static EMPTY_CELL: Particle = Particle {
     variant: Variant::Empty,
     ra: 0,
     rb: 0,
     clock: 0,
+    strength: 0,
 };
+
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Variant {
@@ -18,6 +21,8 @@ pub enum Variant {
     Water = 3,
     Fire = 4,
     Smoke = 5,
+    Salt = 6,
+    SaltWater = 7,
 }
 trait VariantTrait {
     fn get_variant(&self) -> Variant;
@@ -64,14 +69,15 @@ impl VariantTrait for Sand {
 impl std::fmt::Display for Variant {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let res = match self {
-            Variant::Empty => "Empty",
-            Variant::Wall => "Wall",
-            Variant::Sand => "Sand",
-            Variant::Water => "Water",
-            Variant::Fire => "Fire",
-            Variant::Smoke => "Smoke",
+            Variant::Empty => "VOID",
+            Variant::Wall => "WALL",
+            Variant::Sand => "SAND",
+            Variant::Water => "WATR",
+            Variant::Fire => "FIRE",
+            Variant::Smoke => "SMOG",
+            Variant::Salt => "SALT",
+            Variant::SaltWater => "SWAT",
         };
-
         write!(f, "{}", res)
     }
 }
@@ -86,6 +92,68 @@ impl Variant {
             Variant::Water => Water.update(particle, api),
             Variant::Fire => Fire.update(particle, api),
             Variant::Smoke => Smoke.update(particle, api),
+            Variant::Salt => Salt.update(particle, api),
+            Variant::SaltWater => SaltWater.update(particle, api),
+        }
+    }
+}
+
+struct Salt;
+struct SaltWater;
+
+impl VariantTrait for Salt {
+    fn get_variant(&self) -> Variant {
+        Variant::Salt
+    }
+
+    fn get_color(&self) -> (u8, u8, u8) {
+        (0xFF, 0xFF, 0xFF)
+    }
+
+    fn update(&self, mut particle: Particle, mut api: API) {
+        let dx = api.rand_dir();
+        let nbr = api.get(0, 1);
+
+        if nbr.variant == Variant::Empty {
+            api.set(dx, 1, particle);
+            api.set(0, 0, EMPTY_CELL);
+        } else if api.get(dx, 1).variant == Variant::Empty {
+            api.set(dx, 1, particle);
+            api.set(0, 0, EMPTY_CELL);
+        } else if variant_type(nbr.variant).variant_property == VariantProperty::Liquid {
+            api.set(0, 0, nbr);
+            api.set(0, 1, particle);
+        }
+    }
+}
+
+impl VariantTrait for SaltWater {
+    fn get_variant(&self) -> Variant {
+        Variant::SaltWater
+    }
+
+    fn get_color(&self) -> (u8, u8, u8) {
+        // lighter blue
+        crate::LIGHT_BLUE
+    }
+
+    fn update(&self, particle: Particle, mut api: API) {
+        // fall just like salt or sand but move sideways if the bottom is a wall or empty
+        let dx = api.rand_dir();
+        let nbr = api.get(0, 1);
+
+        if nbr.variant == Variant::Empty {
+            api.set(dx, 1, particle);
+            api.set(0, 0, EMPTY_CELL);
+        }
+        if variant_type(nbr.variant).variant_property == VariantProperty::Liquid {
+            api.set(0, 0, nbr);
+            api.set(0, 1, particle);
+        } else if variant_type(api.get(dx, 0).variant).variant_property == VariantProperty::Solid {
+            api.set(dx, 0, particle);
+            api.set(0, 0, EMPTY_CELL);
+        } else {
+            api.set(0, 0, particle);
         }
     }
 }
@@ -100,18 +168,18 @@ impl VariantTrait for Fire {
     }
 
     fn update(&self, particle: Particle, mut api: API) {
-        let ra = particle.ra;
-        let mut decayed = particle.clone();
-        decayed.ra = ra - (2 + api.rand_dir()) as u8;
-
-        let (dx, dy) = api.rand_vec();
-        if ra < 5 || api.get(dx, dy).variant == Variant::Water {
-            api.set(0, 0, EMPTY_CELL);
-        } else if api.get(dx, dy).variant == Variant::Empty {
-            api.set(0, 0, EMPTY_CELL);
-            api.set(dx, dy, decayed);
+        // fire eventually dissolves into smoke
+        if api.once_in(10) {
+            api.set(
+                0,
+                0,
+                Particle {
+                    variant: Variant::Smoke,
+                    ..particle
+                },
+            );
+            return;
         }
-        api.set(0, 0, decayed);
     }
 }
 
@@ -127,36 +195,44 @@ impl VariantTrait for Water {
     }
 
     fn update(&self, particle: Particle, mut api: API) {
-        let mut dx = api.rand_dir();
-        let below = api.get(0, 1);
-        let dx1 = api.get(dx, 1);
+        // fall just like salt or sand but move sideways if the bottom is a wall or empty
+        let dx = api.rand_dir();
+        let nbr = api.get(0, 1);
 
-        if below.variant == Variant::Empty {
-            api.set(0, 0, below);
-            let mut ra = particle.ra;
-            if api.once_in(20) {
-                ra = 100 + api.rand_int(50) as u8;
-            }
-            api.set(0, 1, Particle { ra: ra, ..particle });
-            return;
-        } else if dx1.variant == Variant::Empty {
+        if nbr.variant == Variant::Empty {
             api.set(dx, 1, particle);
             api.set(0, 0, EMPTY_CELL);
-            return;
-        } else if api.get(-dx, 1).variant == Variant::Empty {
+        } else if api.get(dx, 1).variant == Variant::Empty {
+            api.set(dx, 1, particle);
             api.set(0, 0, EMPTY_CELL);
-            api.set(-dx, 1, particle);
-            return;
-        }
+        } else if variant_type(nbr.variant).variant_property == VariantProperty::Liquid {
+            // displace if heavier
+            let other_weight = variant_type(nbr.variant).weight;
+            let self_weight = variant_type(particle.variant).weight;
 
-        let left = particle.ra % 2 == 0;
-        dx = if left { -1 } else { 1 };
-        let dx0 = api.get(dx, 0);
-        let dxd = api.get(dx * 2, 0);
-
-        if dx0.variant == Variant::Empty || dxd.variant == Variant::Empty {
-            api.set(0, 0, dxd);
-            api.set(2 * dx, 0, Particle { rb: 6, ..particle });
+            if self_weight > other_weight {
+                api.set(0, 0, nbr);
+                api.set(0, 1, particle);
+            } else {
+                api.set(0, 0, particle);
+            }
+        } else if variant_type(api.get(dx, 0).variant).variant_property == VariantProperty::Solid {
+            if api.get(dx, 0).variant == Variant::Salt {
+                api.set(
+                    dx,
+                    0,
+                    Particle {
+                        variant: Variant::SaltWater,
+                        ..particle
+                    },
+                );
+                api.set(0, 0, EMPTY_CELL);
+            } else {
+                api.set(dx, 0, particle);
+                api.set(0, 0, EMPTY_CELL);
+            }
+        } else {
+            api.set(0, 0, particle);
         }
     }
 }
@@ -169,40 +245,31 @@ impl VariantTrait for Smoke {
     fn get_color(&self) -> (u8, u8, u8) {
         (0x00, 0x00, 0x00)
     }
-
-    fn update(&self, particle: Particle, mut api: API) {
-        let dx = api.rand_dir();
-        let nb = api.get(dx, 1);
-        let nbr = api.get(dx + 1, 1);
-        let nbl = api.get(dx - 1, 1);
-        let nl = api.get(-1, 0);
-        let nr = api.get(1, 0);
-
-        // check if neighbor is powder property and displace if heavier
-        let nb_type = variant_type(nb.variant);
-
-        if nb_type.variant_property == VariantProperty::Powder {
-            if nb_type.weight > VARIANTS[particle.variant as usize].weight {
-                api.set(0, 1, particle);
-                api.set(0, 0, nb);
-            }
+    fn update(&self, mut particle: Particle, mut api: API) {
+        // eventually gas dissolves into empty
+        if api.once_in(100) && particle.dissolve_to(Variant::Empty) {
+            api.set(0, 0, EMPTY_CELL);
+            return;
         }
 
-        if nb.variant == Variant::Empty {
-            api.set(dx, 1, particle);
+        // gas moves up
+        let above = api.get(0, -1);
+
+        if above.variant == Variant::Empty {
+            api.set(0, -1, particle);
             api.set(0, 0, EMPTY_CELL);
-        } else if nbr.variant == Variant::Empty {
-            api.set(dx + 1, 1, particle);
+            return;
+        }
+
+        // spread gas horizontally
+        let rand_dir = api.rand_vec();
+
+        let next = api.get(rand_dir.0, rand_dir.1);
+
+        if next.variant == Variant::Empty {
+            api.set(rand_dir.0, rand_dir.1, particle);
             api.set(0, 0, EMPTY_CELL);
-        } else if nbl.variant == Variant::Empty {
-            api.set(dx - 1, 1, particle);
-            api.set(0, 0, EMPTY_CELL);
-        } else if nl.variant == Variant::Empty {
-            api.set(-1, 0, particle);
-            api.set(0, 0, EMPTY_CELL);
-        } else if nr.variant == Variant::Empty {
-            api.set(1, 0, particle);
-            api.set(0, 0, EMPTY_CELL);
+            return;
         }
     }
 }

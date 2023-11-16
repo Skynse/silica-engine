@@ -30,24 +30,23 @@ impl World {
     pub fn tick(&mut self) {
         if self.running {
             //wind
-            /*
-                        for x in 0..self.width {
-                            for y in 0..self.height {
-                                let idx = self.get_idx(x as i32, y as i32);
-                                let particle = self.get_particle(x as i32, y as i32);
-                                let wind = self.get_wind(x as i32, y as i32);
-                                World::blow_wind(
-                                    particle,
-                                    wind,
-                                    API {
-                                        world: self,
-                                        x: x as i32,
-                                        y: y as i32,
-                                    },
-                                );
-                            }
-                        }
-            */
+            self.paint_variants();
+            for x in 0..self.width {
+                for y in 0..self.height {
+                    let particle = self.get_particle(x as i32, y as i32);
+                    let wind = self.get_wind(x as i32, y as i32);
+                    World::blow_wind(
+                        particle,
+                        wind,
+                        API {
+                            world: self,
+                            x: x as i32,
+                            y: y as i32,
+                        },
+                    );
+                }
+            }
+
             for x in 0..self.width {
                 let scanx = if self.generation % 2 == 0 {
                     self.width - (x + 1)
@@ -72,12 +71,21 @@ impl World {
     }
 
     fn update_particle(particle: Particle, api: API) {
-        /*
-        if particle.clock - api.world.generation == 1 {
-            return;
-        }
-        */
         particle.variant.update(particle, api);
+    }
+
+    fn paint_variants(&mut self) {
+        for x in 0..self.width {
+            for y in 0..self.height {
+                let idx = self.get_idx(x as i32, y as i32);
+                let particle = self.get_particle(x as i32, y as i32);
+                let variant = particle.variant;
+                let color = particle::particle_to_color(variant);
+                self.particles[idx].ra = color.0;
+                self.particles[idx].rb = color.1;
+                self.particles[idx].clock = self.generation;
+            }
+        }
     }
     pub fn new(width: i32, height: i32) -> World {
         let particles = (0..width * height).map(|_| EMPTY_CELL).collect();
@@ -126,7 +134,7 @@ impl World {
     }
 
     fn blow_wind(particle: Particle, wind: Wind, mut api: API) {
-        if particle.clock - api.world.generation == 1 {
+        if particle.clock == api.world.generation {
             return;
         }
 
@@ -141,7 +149,6 @@ impl World {
             Variant::Empty => 500,
             Variant::Wall => 500,
             Variant::Sand => 30,
-
             Variant::Fire => 5,
             Variant::Smoke => 3,
             _ => 40,
@@ -175,10 +182,8 @@ impl World {
             }
 
             api.set(dx, dy, particle);
-            return;
         }
     }
-
     pub fn swap_particles(&mut self, x1: i32, y1: i32, x2: i32, y2: i32) {
         let idx1 = self.get_idx(x1, y1);
         let idx2 = self.get_idx(x2, y2);

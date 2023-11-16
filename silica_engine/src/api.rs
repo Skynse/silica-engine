@@ -80,30 +80,6 @@ impl<'a> API<'a> {
         rand::thread_rng().gen_range(0..n)
     }
 
-    pub fn swap(&mut self, dx: i32, dy: i32) {
-        let nx = self.x + dx;
-        let ny = self.y + dy;
-
-        if nx < 0
-            || nx >= (self.world.width - 1).try_into().unwrap()
-            || ny < 0
-            || ny >= (self.world.height - 1).try_into().unwrap()
-        {
-            return;
-        }
-
-        let idx = self
-            .world
-            .get_idx(self.x.try_into().unwrap(), self.y.try_into().unwrap());
-        let nidx = self
-            .world
-            .get_idx(nx.try_into().unwrap(), ny.try_into().unwrap());
-
-        let tmp = self.world.particles[idx];
-        self.world.particles[idx] = self.world.particles[nidx];
-        self.world.particles[nidx] = tmp;
-    }
-
     pub fn get(&mut self, dx: i32, dy: i32) -> Particle {
         if dx > 2 || dx < -2 || dy > 2 || dy < -2 {
             panic!("oob set");
@@ -117,6 +93,7 @@ impl<'a> API<'a> {
                 ra: 0,
                 rb: 0,
                 clock: self.world.generation,
+                strength: 0,
             };
         }
         self.world.get_particle(nx, ny)
