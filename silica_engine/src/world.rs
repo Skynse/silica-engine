@@ -1,18 +1,23 @@
 use crate::{
     api::API,
-    particle::Particle,
+    particle::{self, Particle},
     variant::{Variant, EMPTY_CELL},
 };
 
+#[derive(Clone, Copy, PartialEq)]
+pub struct Wind {
+    pub dx: i32,
+    pub dy: i32,
+    pressure: u8,
+    density: u8,
+}
 pub struct World {
     pub(crate) particles: Vec<Particle>,
-    pub(crate) ambient_heat: u8,
-    pub(crate) ambient_pressure: u8,
-    pub(crate) ambient_wind: u8,
-
-    pub width: usize,
-    pub height: usize,
+    pub wind: Vec<Wind>,
+    pub width: i32,
+    pub height: i32,
     pub running: bool,
+    pub generation: u8,
 }
 
 impl Default for World {
@@ -24,11 +29,16 @@ impl Default for World {
 impl World {
     pub fn tick(&mut self) {
         if self.running {
+            //wind
+
             for x in 0..self.width {
                 for y in 0..self.height {
-                    let particle = self.get(x, y);
-                    particle.variant.update(
+                    let idx = self.get_idx(x as i32, y as i32);
+                    let particle = self.get_particle(x as i32, y as i32);
+                    let wind = self.get_wind(x as i32, y as i32);
+                    World::blow_wind(
                         particle,
+                        wind,
                         API {
                             world: self,
                             x: x as i32,
@@ -37,30 +47,58 @@ impl World {
                     );
                 }
             }
+
+            for x in 0..self.width {
+                let scanx = if self.generation % 2 == 0 {
+                    self.width - (x + 1)
+                } else {
+                    x
+                };
+                for y in 0..self.height {
+                    let idx = self.get_idx(scanx as i32, y as i32);
+                    let particle = self.get_particle(scanx as i32, y as i32);
+                    World::update_particle(
+                        particle,
+                        API {
+                            world: self,
+                            x: scanx as i32,
+                            y: y as i32,
+                        },
+                    );
+                }
+            }
         }
+        self.generation = self.generation.wrapping_add(1);
     }
-    pub fn new(width: usize, height: usize) -> World {
-        let mut particles = vec![EMPTY_CELL; width * height];
+
+    fn update_particle(particle: Particle, api: API) {
+        if particle.clock - api.world.generation == 1 {
+            return;
+        }
+        particle.variant.update(particle, api);
+    }
+    pub fn new(width: i32, height: i32) -> World {
+        let particles = (0..width * height).map(|_| EMPTY_CELL).collect();
+        let wind: Vec<Wind> = (0..width * height)
+            .map(|_| Wind {
+                dx: 0,
+                dy: 0,
+                pressure: 0,
+                density: 0,
+            })
+            .collect();
         World {
             particles,
-            ambient_heat: 0,
-            ambient_pressure: 0,
-            ambient_wind: 0,
+            wind: wind,
             width: width,
             height: height,
             running: true,
+            generation: 0,
         }
     }
 
     pub fn particles(&self) -> *const Particle {
         self.particles.as_ptr()
-    }
-
-    pub fn get(&self, x: usize, y: usize) -> Particle {
-        if x >= self.width || y >= self.height {
-            return EMPTY_CELL;
-        }
-        self.particles[x as usize + y as usize * self.width]
     }
 
     pub fn reset(&mut self) {
@@ -75,16 +113,68 @@ impl World {
         (x + y * self.width as i32) as usize
     }
 
-    pub fn get_particle(&self, x: i32, y: i32) -> Particle {
-        if x >= self.width as i32 || y >= self.height as i32 {
-            return Particle::new(Variant::Empty, 0, 0);
-        }
-        self.particles[self.width * y as usize + x as usize]
+    pub fn get_wind(&self, x: i32, y: i32) -> Wind {
+        let idx = self.get_idx(x, y);
+        return self.wind[idx];
     }
 
-    pub fn get_particle_mut(&mut self, x: i32, y: i32) -> &mut Particle {
+    pub fn get_particle(&self, x: i32, y: i32) -> Particle {
         let idx = self.get_idx(x, y);
-        &mut self.particles[idx]
+        self.particles[idx]
+    }
+
+    fn blow_wind(particle: Particle, wind: Wind, mut api: API) {
+        if particle.clock - api.world.generation == 1 {
+            return;
+        }
+
+        if particle.variant == Variant::Empty {
+            return;
+        }
+
+        let mut dx = 0;
+        let mut dy = 0;
+
+        let thresh = match particle.variant {
+            Variant::Empty => 500,
+            Variant::Wall => 500,
+            Variant::Sand => 30,
+
+            Variant::Fire => 5,
+            Variant::Smoke => 3,
+            _ => 40,
+        };
+
+        let wx = (wind.dy as i32) - 126;
+        let wy = (wind.dx as i32) - 126;
+        if wx > thresh {
+            dx = 1;
+        }
+
+        if wy > thresh {
+            dy = 1;
+        }
+
+        if wx < -thresh {
+            dx = -1;
+        }
+
+        if wy < -thresh {
+            dy = -1;
+        }
+
+        if (dx != 0 || dy != 0) && api.get(dx, dy).variant == Variant::Empty {
+            api.set(0, 0, EMPTY_CELL);
+            if dy == -1
+                && api.get(dx, -2).variant == Variant::Empty
+                && (particle.variant == Variant::Sand || particle.variant == Variant::Water)
+            {
+                dy = -2;
+            }
+
+            api.set(dx, dy, particle);
+            return;
+        }
     }
 
     pub fn swap_particles(&mut self, x1: i32, y1: i32, x2: i32, y2: i32) {

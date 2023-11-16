@@ -13,7 +13,7 @@ impl Particle {
     pub fn new(variant: Variant, ra: u8, rb: u8) -> Particle {
         Particle {
             variant: variant,
-            ra: 100 + rand::thread_rng().gen_range(0..2) * 50 as u8,
+            ra: 100 + rand::thread_rng().gen_range(0..=1) * 50 as u8,
             rb,
             clock: 0,
         }
@@ -36,6 +36,7 @@ pub fn particle_to_color(variant: Variant) -> (u8, u8, u8) {
         Variant::Sand => VARIANTS[2].color,
         Variant::Water => VARIANTS[3].color,
         Variant::Fire => VARIANTS[4].color,
+        Variant::Smoke => VARIANTS[5].color,
     };
 
     res

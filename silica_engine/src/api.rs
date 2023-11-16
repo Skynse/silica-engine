@@ -1,11 +1,6 @@
 use rand::Rng;
 use std::convert::TryInto;
-
-fn example_function() {
-    let my_usize: usize = 42;
-    let my_i32: i32 = my_usize.try_into().unwrap();
-    println!("my_i32: {}", my_i32);
-}
+use world::Wind;
 
 use crate::{
     particle::{self, Particle},
@@ -20,35 +15,61 @@ pub struct API<'a> {
 }
 
 impl<'a> API<'a> {
-    pub fn set(&mut self, dx: i32, dy: i32, particle: particle::Particle) {
+    pub fn set(&mut self, dx: i32, dy: i32, mut particle: particle::Particle) {
+        if dx > 2 || dx < -2 || dy > 2 || dy < -2 {
+            panic!("oob set")
+        }
+
         let nx = self.x + dx;
         let ny = self.y + dy;
 
-        if nx < 0
-            || nx >= (self.world.width - 1).try_into().unwrap()
-            || ny < 0
-            || ny >= (self.world.height - 1).try_into().unwrap()
-        {
+        if nx < 0 || nx > self.world.width - 1 || ny < 0 || ny > self.world.height - 1 {
             return;
         }
+        let idx = self.world.get_idx(nx, ny);
+        particle.clock += 1;
 
-        let idx = self
-            .world
-            .get_idx(nx.try_into().unwrap(), ny.try_into().unwrap());
         self.world.particles[idx] = particle;
-
-        // make sure particle does not go out of bounds
-        if self.x < 0 {
-            self.x = 0;
-        }
+        self.world.particles[idx].clock = self.world.generation.wrapping_add(1);
     }
 
     pub fn update_world(&mut self) {
         self.world.tick();
     }
 
+    pub fn get_fluid(&mut self) -> Wind {
+        let idx = self.world.get_idx(self.x, self.y);
+        self.world.wind[idx]
+    }
+
+    pub fn set_fluid(&mut self, dx: i32, dy: i32) {
+        let idx = self.world.get_idx(self.x, self.y);
+        self.world.wind[idx].dx = dx;
+        self.world.wind[idx].dy = dy;
+    }
+
+    pub fn rand_vec(&mut self) -> (i32, i32) {
+        let i = self.rand_int(2000);
+        match i % 9 {
+            0 => (1, 1),
+            1 => (1, 0),
+            2 => (1, -1),
+            3 => (0, -1),
+            4 => (-1, -1),
+            5 => (-1, 0),
+            6 => (-1, 1),
+            7 => (0, 1),
+            _ => (0, 0),
+        }
+    }
+
     pub fn reset(&mut self) {
         self.world.reset();
+    }
+
+    pub fn once_in(&mut self, n: i32) -> bool {
+        let i = self.rand_int(n);
+        i == 0
     }
 
     pub fn rand_dir(&mut self) -> i32 {
@@ -57,9 +78,7 @@ impl<'a> API<'a> {
     }
 
     pub fn rand_int(&mut self, n: i32) -> i32 {
-        let mut rng = rand::thread_rng();
-        let x = rng.gen_range(0..n);
-        x
+        rand::thread_rng().gen_range(0..n)
     }
 
     pub fn swap(&mut self, dx: i32, dy: i32) {
@@ -87,18 +106,21 @@ impl<'a> API<'a> {
     }
 
     pub fn get(&mut self, dx: i32, dy: i32) -> Particle {
+        if dx > 2 || dx < -2 || dy > 2 || dy < -2 {
+            panic!("oob set");
+        }
         let nx = self.x + dx;
         let ny = self.y + dy;
 
-        if nx < 0
-            || nx >= (self.world.width - 1).try_into().unwrap()
-            || ny < 0
-            || ny >= (self.world.height - 1).try_into().unwrap()
-        {
-            return Particle::new(Variant::Empty, 0, 0);
+        if nx < 0 || nx > self.world.width - 1 || ny < 0 || ny > self.world.height - 1 {
+            return Particle {
+                variant: Variant::Wall,
+                ra: 0,
+                rb: 0,
+                clock: self.world.generation,
+            };
         }
-        self.world
-            .get(nx.try_into().unwrap(), ny.try_into().unwrap())
+        self.world.get_particle(nx, ny)
     }
 }
 
