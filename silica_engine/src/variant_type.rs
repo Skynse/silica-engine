@@ -12,6 +12,7 @@ pub struct VariantType {
 } // flags
 pub const FLAG_BURNS: u8 = 0b00000001;
 pub const FLAG_EXPLOSIVE: u8 = 0b00000010;
+pub const FLAG_IMMUTABLE: u8 = 0b00000100;
 
 impl VariantType {
     pub fn has_flag(&self, flag: u8) -> bool {
@@ -48,7 +49,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         strength: 0,
         color: (0x7F, 0x7F, 0x7F),
         source_variant: Variant::Wall,
-        flags: 0,
+        flags: FLAG_IMMUTABLE,
         variant_property: VariantProperty::Solid,
     },
     // 2 Sand

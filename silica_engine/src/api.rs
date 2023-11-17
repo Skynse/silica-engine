@@ -1,11 +1,12 @@
 use rand::Rng;
 use std::convert::TryInto;
+use variant_type::{VariantProperty, FLAG_IMMUTABLE};
 use world::Wind;
 
 use crate::{
     particle::{self, Particle},
     variant::Variant,
-    world,
+    variant_type, world,
 };
 
 pub struct API<'a> {
@@ -36,12 +37,24 @@ impl<'a> API<'a> {
         self.world.tick();
     }
 
-    pub fn swap(&mut self, idx0: usize, idx2: usize) {
-        let tmp = self.world.particles[idx0];
-        self.world.particles[idx0] = self.world.particles[idx2];
-        self.world.particles[idx2] = tmp;
-    }
+    pub fn swap(&mut self, x1: i32, y1: i32, x2: i32, y2: i32) {
+        let idx1 = self.world.get_idx(x1, y1);
+        let idx2 = self.world.get_idx(x2, y2);
+        let mut c1 = self.world.particles[idx1];
+        let mut c2 = self.world.particles[idx2];
 
+        if variant_type::variant_type(c1.variant).flags & FLAG_IMMUTABLE
+            | variant_type::variant_type(c2.variant).flags & FLAG_IMMUTABLE
+            == 0
+        {
+            return;
+        }
+
+        c1.modified = self.world.modified_state;
+        c2.modified = self.world.modified_state;
+        self.world.particles[idx1] = c2;
+        self.world.particles[idx2] = c1;
+    }
     pub fn get_from_idx(&mut self, idx: usize) -> Particle {
         self.world.particles[idx]
     }
@@ -108,6 +121,8 @@ impl<'a> API<'a> {
                 rb: 0,
                 clock: self.world.generation,
                 strength: 0,
+                modified: false,
+                velocity: 0,
             };
         }
         self.world.get_particle(nx, ny)

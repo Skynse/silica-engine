@@ -25,6 +25,7 @@ pub struct World {
     pub generation: u8,
     pub modified_indices: HashSet<usize>,
     pub cleared: bool,
+    pub modified_state: bool,
 }
 
 impl Default for World {
@@ -35,10 +36,9 @@ impl Default for World {
 
 impl World {
     pub fn tick(&mut self) {
-        self.cleared = false;
-        self.modified_indices = HashSet::new();
         if self.running {
             //wind
+            /*
             self.paint_variants();
             for x in 0..self.width {
                 for y in 0..self.height {
@@ -55,7 +55,8 @@ impl World {
                     );
                 }
             }
-
+            */
+            self.generation = self.generation.wrapping_add(1);
             /*
             for x in 0..self.width {
                 let scanx = if self.generation % 2 == 0 {
@@ -82,25 +83,30 @@ impl World {
 
             // iterate in reverse order
             for x in (0..self.width).rev() {
+                let scanx = if self.generation % 2 == 0 {
+                    self.width - (x + 1)
+                } else {
+                    x
+                };
                 for y in (0..self.height).rev() {
-                    let idx = self.get_idx(x as i32, y as i32);
-                    let left_to_right: bool = rand::random();
-                    let particle = self.get_particle(x as i32, y as i32);
+                    let idx = self.get_idx(scanx as i32, y as i32);
 
-                    World::update_particle(
+                    let particle = self.get_particle(scanx as i32, y as i32);
+
+                    self.modified_state = World::update_particle(
                         particle,
                         API {
                             world: self,
-                            x: x as i32,
+                            x: scanx as i32,
                             y: y as i32,
                         },
                     );
                 }
             }
+            println!("{:?}", self.modified_indices.len());
+            self.generation = self.generation.wrapping_add(1);
+            self.modified_indices.clear();
         }
-
-        self.generation = self.generation.wrapping_add(1);
-        self.modified_indices.clear();
     }
 
     pub fn needs_update(&self) -> bool {
@@ -115,11 +121,15 @@ impl World {
         self.running = true;
     }
 
-    fn update_particle(particle: Particle, mut api: API) {
-        if particle.variant == Variant::Empty {
-            return;
+    fn update_particle(mut particle: Particle, mut api: API) -> bool {
+        if particle.clock > api.world.generation {
+            return false;
         }
-        println!("{:?}", particle.variant);
+
+        if variant_type::variant_type(particle.variant).has_flag(variant_type::FLAG_IMMUTABLE) {
+            return false;
+        }
+
         match variant_type::variant_type(particle.variant).variant_property {
             VariantProperty::Powder => {
                 // super basic falling sand impl
@@ -129,49 +139,95 @@ impl World {
                 if below.variant == Variant::Empty {
                     api.set(0, 1, particle);
                     api.set(0, 0, EMPTY_CELL);
-                    return;
+                    return true;
                 }
 
-                if below.variant == Variant::Water {
-                    api.set(0, 1, particle);
+                if left.variant == Variant::Empty && right.variant == Variant::Empty {
+                    let dir = api.rand_dir();
+                    api.set(dir, 1, particle);
                     api.set(0, 0, EMPTY_CELL);
-                    return;
-                }
-
-                if below.variant == Variant::SaltWater {
-                    api.set(0, 1, particle);
-                    api.set(0, 0, EMPTY_CELL);
-                    return;
+                    return true;
                 }
             }
 
             VariantProperty::Liquid => {
-                // super basic falling sand impl
+                // super basic falling and spreading water impl
                 let below = api.get(0, 1);
-                let left = api.get(-1, 1);
-                let right = api.get(1, 1);
+                let below_left = api.get(-1, 1);
+                let below_right = api.get(1, 1);
+
+                // Move down if the cell below is empty
                 if below.variant == Variant::Empty {
                     api.set(0, 1, particle);
                     api.set(0, 0, EMPTY_CELL);
-                    return;
+                    return true;
                 }
 
-                if below.variant == Variant::Water {
-                    api.set(0, 1, particle);
+                // Try to spread horizontally if there's space to the left or right
+                if below_left.variant == Variant::Empty {
+                    api.set(-1, 1, particle);
                     api.set(0, 0, EMPTY_CELL);
-                    return;
+                    return true;
+                } else if below_right.variant == Variant::Empty {
+                    api.set(1, 1, particle);
+                    api.set(0, 0, EMPTY_CELL);
+                    return true;
                 }
 
-                if below.variant == Variant::SaltWater {
-                    api.set(0, 1, particle);
-                    api.set(0, 0, EMPTY_CELL);
-                    return;
+                // water can also move two cells down if there's space
+            }
+
+            VariantProperty::Gas => {
+                let (dx, dy) = api.rand_vec();
+
+                let nbr = api.get(dx, dy);
+                // api.set_fluid(Wind {
+                //     dx: 0,
+                //     dy: 0,
+                //     pressure: 5,
+                //     density: 0,
+                // });
+                if particle.rb == 0 {
+                    api.set(0, 0, Particle { rb: 5, ..particle });
                 }
+
+                let nbr_type = &variant_type::variant_type(nbr.variant).variant_property;
+
+                if nbr.variant == Variant::Empty {
+                    if particle.rb < 3 {
+                        //single molecule
+                        api.set(0, 0, EMPTY_CELL);
+                        api.set(dx, dy, particle);
+                    } else {
+                        api.set(0, 0, Particle { rb: 1, ..particle });
+                        api.set(
+                            dx,
+                            dy,
+                            Particle {
+                                rb: particle.rb - 1,
+                                ..particle
+                            },
+                        );
+                    }
+                } else if (dx != 0 || dy != 0) && *nbr_type == VariantProperty::Gas && nbr.rb < 4 {
+                    // if (cell.rb < 2) {
+                    api.set(0, 0, EMPTY_CELL);
+                    // }
+                    api.set(
+                        dx,
+                        dy,
+                        Particle {
+                            rb: nbr.rb + particle.rb,
+                            ..particle
+                        },
+                    );
+                }
+                // spread opinion
             }
 
             _ => (),
         }
-        particle.variant.update(particle, api);
+        particle.update(api)
     }
 
     fn paint_variants(&mut self) {
@@ -206,6 +262,7 @@ impl World {
             generation: 0,
             modified_indices: HashSet::new(),
             cleared: false,
+            modified_state: false,
         }
     }
 
@@ -237,8 +294,17 @@ impl World {
         self.particles[idx]
     }
 
+    pub fn toggle_modified_state(&mut self) -> bool {
+        self.modified_state = !self.modified_state;
+        self.modified_state
+    }
+
+    pub fn is_modified(&self) -> bool {
+        self.modified_state
+    }
+
     fn blow_wind(particle: Particle, wind: Wind, mut api: API) {
-        if particle.clock == api.world.generation {
+        if particle.clock > api.world.generation {
             return;
         }
 
@@ -288,24 +354,18 @@ impl World {
             api.set(dx, dy, particle);
         }
     }
-    pub fn swap_particles(&mut self, x1: i32, y1: i32, x2: i32, y2: i32) {
-        let idx1 = self.get_idx(x1, y1);
-        let idx2 = self.get_idx(x2, y2);
-        self.particles.swap(idx1, idx2);
-    }
 
     pub fn set_particle(&mut self, x: i32, y: i32, variant: Variant) {
+        if x < 0 || x > self.width - 1 || y < 0 || y > self.height - 1 {
+            return;
+        }
+
         let idx = self.get_idx(x, y);
         if idx >= self.particles.len() {
             return;
         }
         self.particles[idx] = Particle::new(variant, 0, 0);
         self.modified_indices.insert(idx);
-    }
-
-    pub fn set(&mut self, x: i32, y: i32, particle: Particle) {
-        let idx = self.get_idx(x, y);
-        self.particles[idx] = particle;
     }
 }
 
