@@ -31,3 +31,5 @@ pub const LIGHT_CYAN: (u8, u8, u8) = (224, 255, 255);
 pub const LIGHT_MAGENTA: (u8, u8, u8) = (255, 0, 255);
 pub const DARK_BLUE: (u8, u8, u8) = (0, 0, 128);
 pub const DARK_RED: (u8, u8, u8) = (128, 0, 0);
+pub const RUST: (u8, u8, u8) = (183, 65, 14);
+pub const IRON: (u8, u8, u8) = (183, 65, 14);

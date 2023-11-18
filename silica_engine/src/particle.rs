@@ -1,13 +1,21 @@
-use crate::{api::API, prelude::variant_type, variant::Variant, variant_type::VARIANTS};
+use crate::{
+    api::API,
+    prelude::{variant_type, FLAG_IMMUTABLE},
+    variant::Variant,
+    variant_type::VARIANTS,
+};
 use rand::Rng;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Particle {
     pub variant: Variant,
     pub ra: u8,
     pub rb: u8,
     pub clock: u8,
     pub strength: u8,
+    pub modified: bool,
+    pub velocity: u8,
+    pub temperature: f32,
 }
 
 impl Particle {
@@ -18,6 +26,9 @@ impl Particle {
             rb,
             clock: 0,
             strength: 0,
+            modified: false,
+            velocity: 0,
+            temperature: 0.,
         }
     }
 
@@ -25,9 +36,22 @@ impl Particle {
         self.variant
     }
 
-    pub fn update(&self, api: API) {
-        // pass
-        self.variant.update(*self, api);
+    pub fn add_heat(&mut self, heat: f32) {
+        self.temperature += heat;
+    }
+
+    pub fn update_vel(&mut self) {
+        let max_speed = 8;
+        let new_vel = self.velocity as f32 + 0.2;
+        if (new_vel).abs() > max_speed as f32 {
+            self.velocity = max_speed * new_vel.signum() as u8;
+        } else {
+            self.velocity = new_vel as u8;
+        }
+    }
+
+    pub fn update(&mut self, mut api: API) -> bool {
+        self.variant.update(*self, api)
     }
 }
 
@@ -41,16 +65,35 @@ pub fn particle_to_color(variant: Variant) -> (u8, u8, u8) {
         Variant::Smoke => VARIANTS[5].color,
         Variant::Salt => VARIANTS[6].color,
         Variant::SaltWater => VARIANTS[7].color,
+        Variant::OXGN => VARIANTS[8].color,
+        Variant::HYGN => VARIANTS[9].color,
+        Variant::HELM => VARIANTS[10].color,
+        Variant::CARB => VARIANTS[11].color,
+        Variant::NITR => VARIANTS[12].color,
+        Variant::IRON => VARIANTS[13].color,
+        Variant::CO2 => VARIANTS[14].color,
     };
 
     res
 }
 pub fn vary_color(color: (u8, u8, u8), variance: u8) -> (u8, u8, u8) {
-    let mut rng = rand::thread_rng();
-    let r = rng.gen_range(color.0.saturating_sub(variance)..=color.0.saturating_add(variance));
-    let g = rng.gen_range(color.1.saturating_sub(variance)..=color.1.saturating_add(variance));
-    let b = rng.gen_range(color.2.saturating_sub(variance)..=color.2.saturating_add(variance));
-    (r, g, b)
+    // grainy color not deviating too much from original color
+    // DO NOT OVERFLOW SUBTRACTION
+    let r = if color.0 > variance {
+        color.0 - variance
+    } else {
+        0
+    };
+
+    (
+        r.wrapping_add(rand::thread_rng().gen_range(0..variance * 2)),
+        color
+            .1
+            .wrapping_add(rand::thread_rng().gen_range(0..variance * 2)),
+        color
+            .2
+            .wrapping_add(rand::thread_rng().gen_range(0..variance * 2)),
+    )
 }
 
 pub fn interpolate(
