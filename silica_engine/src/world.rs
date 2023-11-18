@@ -16,9 +16,17 @@ pub struct Wind {
     pressure: u8,
     density: u8,
 }
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct Environment {
+    pub pressure: f32,
+    pub ambient_temperature: f32,
+    pub ambient_pressure: f32,
+}
 pub struct World {
     pub(crate) particles: Vec<Particle>,
     pub wind: Vec<Wind>,
+    pub environment: Vec<Environment>,
     pub width: i32,
     pub height: i32,
     pub running: bool,
@@ -36,7 +44,44 @@ impl Default for World {
 
 impl World {
     pub fn tick(&mut self) {
+        self.cleared = false;
         if self.running {
+            /*
+                        for x in 0..self.width {
+                            for y in 0..self.height {
+                                let temp = self.get_temperature(x, y);
+                                // share heat with neighbors divided by 4
+                                // DO NOT USE WIND OR DENSITY
+                                let mut heat = temp / 4.;
+                                let pressure = self.get_pressure(x, y);
+
+                                let nbr = self.get_particle(x, y);
+                                let nbb = self.get_particle(x, y + 1);
+                                let nbl = self.get_particle(x - 1, y);
+                                let nbr = self.get_particle(x + 1, y);
+
+                                // if a particle is above, take average its temperature
+                                // set temeprature for this location to that average
+                                // only do for above for now
+                                // decrease environment heat over time
+                                self.set_temperature(x, y, temp - 0.1);
+                                // clamp temp
+                                if temp < 0. {
+                                    self.set_temperature(x, y, 0.);
+                                }
+
+                                if nbr.variant != Variant::Empty {
+                                    let nbr_temp = self.get_temperature(x + 1, y);
+                                    heat += nbr_temp / 4.;
+                                }
+
+                                let nbr_type = &variant_type::variant_type(nbr.variant).variant_property;
+                                let base_temp = variant_type::variant_type(nbr.variant).base_temperature;
+
+                                self.set_pressure(x, y, pressure);
+                            }
+                        }
+            */
             //wind
             /*
             self.paint_variants();
@@ -56,7 +101,7 @@ impl World {
                 }
             }
             */
-            self.generation = self.generation.wrapping_add(1);
+            //  self.generation = self.generation.wrapping_add(1);
             /*
             for x in 0..self.width {
                 let scanx = if self.generation % 2 == 0 {
@@ -82,7 +127,7 @@ impl World {
             // take iterator instead
 
             // iterate in reverse order
-            for x in (0..self.width).rev() {
+            for x in (0..self.width - 1).rev() {
                 let scanx = if self.generation % 2 == 0 {
                     self.width - (x + 1)
                 } else {
@@ -92,6 +137,9 @@ impl World {
                     let idx = self.get_idx(scanx as i32, y as i32);
 
                     let particle = self.get_particle(scanx as i32, y as i32);
+                    if particle.modified {
+                        self.modified_indices.insert(idx);
+                    }
 
                     self.modified_state = World::update_particle(
                         particle,
@@ -101,9 +149,34 @@ impl World {
                             y: y as i32,
                         },
                     );
+
+                    let idx = self.get_idx(x as i32, y as i32);
+                    let mut temperature = self.get_temperature(x, y);
+
+                    // Adjust temperature towards the baseline value
+                    let baseline_temperature = 22.0;
+                    let temperature_decay_rate = 0.1; // Adjust this rate based on your preference
+
+                    temperature += (baseline_temperature - temperature) * temperature_decay_rate;
+
+                    // Share temperature with neighbors
+                    for dx in -1..=1 {
+                        for dy in -1..=1 {
+                            if dx != 0 || dy != 0 {
+                                let nbr_x = (x as i32 + dx).clamp(0, self.width - 1) as i32;
+                                let nbr_y = (y as i32 + dy).clamp(0, self.height - 1) as i32;
+
+                                let nbr_temperature = self.get_temperature(nbr_x, nbr_y);
+                                temperature += (nbr_temperature - temperature) * 0.25;
+                                // Adjust this rate based on your preference
+                            }
+                        }
+                    }
+
+                    self.set_temperature(x, y, temperature);
                 }
             }
-            println!("{:?}", self.modified_indices.len());
+
             self.generation = self.generation.wrapping_add(1);
             self.modified_indices.clear();
         }
@@ -155,6 +228,7 @@ impl World {
                 let below = api.get(0, 1);
                 let below_left = api.get(-1, 1);
                 let below_right = api.get(1, 1);
+                let idx = api.world.get_idx(api.x, api.y);
 
                 // Move down if the cell below is empty
                 if below.variant == Variant::Empty {
@@ -162,15 +236,16 @@ impl World {
                     api.set(0, 0, EMPTY_CELL);
                     return true;
                 }
-
                 // Try to spread horizontally if there's space to the left or right
-                if below_left.variant == Variant::Empty {
-                    api.set(-1, 1, particle);
-                    api.set(0, 0, EMPTY_CELL);
+                else if below_left.variant == Variant::Empty {
+                    // swap with below left
+                    // swap current index with below left
+                    api.world.particles.swap(idx, idx - 1);
                     return true;
                 } else if below_right.variant == Variant::Empty {
-                    api.set(1, 1, particle);
-                    api.set(0, 0, EMPTY_CELL);
+                    // swap with below right
+                    // swap current index with below right
+                    api.world.particles.swap(idx, idx + 1);
                     return true;
                 }
 
@@ -227,7 +302,9 @@ impl World {
 
             _ => (),
         }
-        particle.update(api)
+        let state = &particle.update(api);
+        particle.modified = *state;
+        *state
     }
 
     fn paint_variants(&mut self) {
@@ -253,9 +330,18 @@ impl World {
                 density: 0,
             })
             .collect();
+
+        let environment: Vec<Environment> = (0..width * height)
+            .map(|_| Environment {
+                pressure: 0.,
+                ambient_temperature: 0.,
+                ambient_pressure: 0.,
+            })
+            .collect();
         World {
             particles,
             wind: wind,
+            environment: environment,
             width: width,
             height: height,
             running: true,
@@ -274,6 +360,7 @@ impl World {
         for particle in self.particles.iter_mut() {
             *particle = Particle::new(Variant::Empty, 0, 0);
         }
+
         self.cleared = true;
         self.modified_indices.clear();
     }
@@ -284,12 +371,25 @@ impl World {
         (x + y * self.width as i32) as usize
     }
 
+    pub fn get_temperature(&self, x: i32, y: i32) -> f32 {
+        let idx = self.get_idx(x, y);
+        self.environment[idx].ambient_temperature
+    }
+
+    pub fn get_pressure(&self, x: i32, y: i32) -> f32 {
+        let idx = self.get_idx(x, y);
+        self.environment[idx].ambient_pressure
+    }
+
     pub fn get_wind(&self, x: i32, y: i32) -> Wind {
         let idx = self.get_idx(x, y);
         return self.wind[idx];
     }
 
     pub fn get_particle(&self, x: i32, y: i32) -> Particle {
+        if x < 0 || x > self.width - 1 || y < 0 || y > self.height - 1 {
+            return EMPTY_CELL;
+        }
         let idx = self.get_idx(x, y);
         self.particles[idx]
     }
@@ -297,6 +397,14 @@ impl World {
     pub fn toggle_modified_state(&mut self) -> bool {
         self.modified_state = !self.modified_state;
         self.modified_state
+    }
+
+    pub fn add_heat(&mut self, x: i32, y: i32, heat: f32) {
+        if x < 0 || x > self.width - 1 || y < 0 || y > self.height - 1 {
+            return;
+        }
+        let idx = self.get_idx(x, y);
+        self.particles[idx].temperature += heat;
     }
 
     pub fn is_modified(&self) -> bool {
@@ -355,8 +463,35 @@ impl World {
         }
     }
 
+    pub fn set_pressure(&mut self, x: i32, y: i32, pressure: f32) {
+        if x < 0 || x > self.width - 1 || y < 0 || y > self.height - 1 {
+            return;
+        }
+        let idx = self.get_idx(x, y);
+        self.environment[idx].pressure = pressure;
+    }
+
+    pub fn set_temperature(&mut self, x: i32, y: i32, temperature: f32) {
+        if x < 0 || x > self.width - 1 || y < 0 || y > self.height - 1 {
+            return;
+        }
+
+        let idx = self.get_idx(x, y);
+        self.environment[idx].ambient_temperature = temperature;
+    }
+
     pub fn set_particle(&mut self, x: i32, y: i32, variant: Variant) {
         if x < 0 || x > self.width - 1 || y < 0 || y > self.height - 1 {
+            return;
+        }
+
+        // if the particle is already set to the same variant, don't do anything
+        if self.get_particle(x, y).variant == variant {
+            return;
+        }
+
+        // if the particle is already a wall, don't do anything
+        if self.get_particle(x, y).variant == Variant::Wall {
             return;
         }
 
@@ -365,7 +500,6 @@ impl World {
             return;
         }
         self.particles[idx] = Particle::new(variant, 0, 0);
-        self.modified_indices.insert(idx);
     }
 }
 

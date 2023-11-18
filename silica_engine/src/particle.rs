@@ -6,7 +6,7 @@ use crate::{
 };
 use rand::Rng;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Particle {
     pub variant: Variant,
     pub ra: u8,
@@ -15,6 +15,7 @@ pub struct Particle {
     pub strength: u8,
     pub modified: bool,
     pub velocity: u8,
+    pub temperature: f32,
 }
 
 impl Particle {
@@ -27,11 +28,16 @@ impl Particle {
             strength: 0,
             modified: false,
             velocity: 0,
+            temperature: 0.,
         }
     }
 
     pub fn get_variant(&self) -> Variant {
         self.variant
+    }
+
+    pub fn add_heat(&mut self, heat: f32) {
+        self.temperature += heat;
     }
 
     pub fn update_vel(&mut self) {
@@ -59,6 +65,13 @@ pub fn particle_to_color(variant: Variant) -> (u8, u8, u8) {
         Variant::Smoke => VARIANTS[5].color,
         Variant::Salt => VARIANTS[6].color,
         Variant::SaltWater => VARIANTS[7].color,
+        Variant::OXGN => VARIANTS[8].color,
+        Variant::HYGN => VARIANTS[9].color,
+        Variant::HELM => VARIANTS[10].color,
+        Variant::CARB => VARIANTS[11].color,
+        Variant::NITR => VARIANTS[12].color,
+        Variant::IRON => VARIANTS[13].color,
+        Variant::CO2 => VARIANTS[14].color,
     };
 
     res

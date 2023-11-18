@@ -74,6 +74,25 @@ impl<'a> API<'a> {
         self.world.wind[idx].dy = dy;
     }
 
+    pub fn set_temperature(&mut self, x: i32, y: i32, temperature: f32) {
+        let idx = self.world.get_idx(x, y);
+        self.world.environment[idx].ambient_temperature = temperature;
+    }
+
+    pub fn get_temperature(&mut self, x: i32, y: i32) -> f32 {
+        let idx = self.world.get_idx(x, y);
+        self.world.environment[idx].ambient_temperature
+    }
+
+    pub fn get_pressure(&mut self, x: i32, y: i32) -> f32 {
+        let idx = self.world.get_idx(x, y);
+        self.world.environment[idx].ambient_pressure
+    }
+
+    pub fn set_pressure(&mut self, x: i32, y: i32, pressure: f32) {
+        let idx = self.world.get_idx(x, y);
+        self.world.environment[idx].ambient_pressure = pressure;
+    }
     pub fn rand_vec(&mut self) -> (i32, i32) {
         let i = self.rand_int(2000);
         match i % 9 {
@@ -123,6 +142,7 @@ impl<'a> API<'a> {
                 strength: 0,
                 modified: false,
                 velocity: 0,
+                temperature: 0.,
             };
         }
         self.world.get_particle(nx, ny)
