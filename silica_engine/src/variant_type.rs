@@ -4,7 +4,7 @@ use crate::{particle::Particle, variant::Variant};
 pub const VARIANT_COUNT: usize = 16;
 use crate::colors::*;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub struct VariantType {
     pub weight: u8,
     pub color: ParticleColor,
@@ -13,6 +13,7 @@ pub struct VariantType {
     pub base_temperature: f32,
     pub variant_property: VariantProperty,
     pub flags: u8,
+    pub name: &'static str,
 } // flags
 pub const FLAG_BURNS: u8 = 0b00000001;
 pub const FLAG_EXPLOSIVE: u8 = 0b00000010;
@@ -25,7 +26,7 @@ impl VariantType {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub enum VariantProperty {
     Solid,
     Powder,
@@ -48,6 +49,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         flags: 0,
         variant_property: VariantProperty::Solid,
         base_temperature: 22.,
+        name: "Empty",
     },
     // 1 Wall
     VariantType {
@@ -58,6 +60,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         flags: FLAG_IMMUTABLE,
         variant_property: VariantProperty::Solid,
         base_temperature: 22.,
+        name: "Wall",
     },
     // 2 Sand
     VariantType {
@@ -69,6 +72,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Powder,
         flags: 0,
         base_temperature: 22.,
+        name: "Sand",
     },
     // 3 Water
     VariantType {
@@ -79,6 +83,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Liquid,
         flags: 0,
         base_temperature: 22.,
+        name: "Water",
     },
     // 4 Fire
     VariantType {
@@ -89,6 +94,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: FLAG_BURNS,
         base_temperature: 422.,
+        name: "Fire",
     },
     // 5 Smoke
     VariantType {
@@ -99,6 +105,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: 0,
         base_temperature: 22.,
+        name: "Smoke",
     },
     // 6 Salt
     VariantType {
@@ -109,6 +116,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Powder,
         flags: 0,
         base_temperature: 22.,
+        name: "Salt",
     },
     // 7 SaltWater
     VariantType {
@@ -119,6 +127,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Liquid,
         flags: 0,
         base_temperature: 22.,
+        name: "SaltWater",
     },
     // 8 OXGN
     VariantType {
@@ -129,6 +138,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: FLAG_BURNS | FLAG_IGNITES,
         base_temperature: 22.,
+        name: "OXGN",
     },
     // 9 HYGN
     VariantType {
@@ -139,6 +149,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: FLAG_BURNS | FLAG_IGNITES,
         base_temperature: 22.,
+        name: "HYGN",
     },
     // 10 HELM
     VariantType {
@@ -149,6 +160,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: 0,
         base_temperature: 22.,
+        name: "HELM",
     },
     // 11 CARB
     VariantType {
@@ -160,6 +172,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Powder,
         flags: 0,
         base_temperature: 22.,
+        name: "CARB",
     },
     // 12 NITR
     VariantType {
@@ -170,6 +183,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: 0,
         base_temperature: 22.,
+        name: "NITR",
     },
     // 13 IRON
     VariantType {
@@ -180,6 +194,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Powder,
         flags: 0,
         base_temperature: 22.,
+        name: "IRON",
     },
     // 14 CO2
     VariantType {
@@ -190,6 +205,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: 0,
         base_temperature: 22.,
+        name: "CO2",
     },
     // 15 WTVP
     VariantType {
@@ -200,6 +216,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: 0,
         base_temperature: 22.,
+        name: "WTVP",
     },
 ];
 

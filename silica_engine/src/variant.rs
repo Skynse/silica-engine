@@ -5,7 +5,10 @@ pub use crate::{
     particle::Particle,
     variant_type::{variant_type, VariantProperty, VARIANTS},
 };
-use crate::{particle::Velocity, prelude::GRAVITY};
+use crate::{
+    particle::Velocity,
+    prelude::{VariantType, GRAVITY},
+};
 
 pub static EMPTY_CELL: Particle = Particle {
     variant: Variant::Empty,
@@ -70,6 +73,11 @@ impl Variant {
 
             _ => false,
         }
+    }
+
+    pub fn get_type(&self) -> VariantType {
+        let variant_type = variant_type(*self);
+        *variant_type
     }
 
     pub fn get_name(&self) -> &'static str {

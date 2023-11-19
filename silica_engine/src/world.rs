@@ -193,7 +193,11 @@ impl World {
             return false;
         }
 
-        if variant_type::variant_type(particle.variant).has_flag(variant_type::FLAG_IMMUTABLE) {
+        if particle
+            .variant
+            .get_type()
+            .has_flag(variant_type::FLAG_IMMUTABLE)
+        {
             return false;
         }
 
