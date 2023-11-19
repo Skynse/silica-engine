@@ -1,6 +1,6 @@
 use crate::{
     api::API,
-    prelude::{variant_type, FLAG_IMMUTABLE},
+    prelude::{variant_type, ParticleColor, FLAG_IMMUTABLE},
     variant::Variant,
     variant_type::VARIANTS,
 };
@@ -14,8 +14,14 @@ pub struct Particle {
     pub clock: u8,
     pub strength: u8,
     pub modified: bool,
-    pub velocity: u8,
+    pub velocity: Velocity,
     pub temperature: f32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Velocity {
+    pub x: f32,
+    pub y: f32,
 }
 
 impl Particle {
@@ -27,7 +33,7 @@ impl Particle {
             clock: 0,
             strength: 0,
             modified: false,
-            velocity: 0,
+            velocity: Velocity { x: 0., y: 0. },
             temperature: 0.,
         }
     }
@@ -38,15 +44,9 @@ impl Particle {
 
     pub fn add_heat(&mut self, heat: f32) {
         self.temperature += heat;
-    }
-
-    pub fn update_vel(&mut self) {
-        let max_speed = 8;
-        let new_vel = self.velocity as f32 + 0.2;
-        if (new_vel).abs() > max_speed as f32 {
-            self.velocity = max_speed * new_vel.signum() as u8;
-        } else {
-            self.velocity = new_vel as u8;
+        // clamp to max_temp
+        if self.temperature > crate::MAX_TEMP {
+            self.temperature = crate::MAX_TEMP;
         }
     }
 
@@ -55,9 +55,9 @@ impl Particle {
     }
 }
 
-pub fn particle_to_color(variant: Variant) -> (u8, u8, u8) {
+pub fn particle_to_color(variant: Variant) -> ParticleColor {
     let res = match variant {
-        Variant::Empty => (0, 0, 0),
+        Variant::Empty => VARIANTS[0].color,
         Variant::Wall => VARIANTS[1].color,
         Variant::Sand => VARIANTS[2].color,
         Variant::Water => VARIANTS[3].color,
@@ -72,6 +72,7 @@ pub fn particle_to_color(variant: Variant) -> (u8, u8, u8) {
         Variant::NITR => VARIANTS[12].color,
         Variant::IRON => VARIANTS[13].color,
         Variant::CO2 => VARIANTS[14].color,
+        Variant::WTVP => VARIANTS[15].color,
     };
 
     res

@@ -5,6 +5,7 @@ pub use crate::{
     particle::Particle,
     variant_type::{variant_type, VariantProperty, VARIANTS},
 };
+use crate::{particle::Velocity, prelude::GRAVITY};
 
 pub static EMPTY_CELL: Particle = Particle {
     variant: Variant::Empty,
@@ -13,7 +14,7 @@ pub static EMPTY_CELL: Particle = Particle {
     clock: 0,
     strength: 0,
     modified: false,
-    velocity: 0,
+    velocity: Velocity { x: 0., y: 0. },
     temperature: 0.,
 };
 
@@ -39,7 +40,9 @@ pub enum Variant {
 
     // COMPOUNDS
     CO2 = 14, //gas
-              // skip water
+
+    //GASES
+    WTVP = 15, //water vapor
 }
 
 impl Display for Variant {
@@ -86,43 +89,16 @@ impl Variant {
             Variant::HELM => "Helium",
             Variant::NITR => "Nitrogen",
             Variant::CO2 => "CO2",
+            Variant::WTVP => "Steam",
         }
     }
 }
 
-fn update_sand(particle: Particle, mut api: API) -> bool {
-    let dx = api.rand_dir();
-    let nbr = api.get(0, 1);
-
-    if nbr.variant == Variant::Empty {
-        api.set(dx, 1, particle);
-        api.set(0, 0, EMPTY_CELL);
-    } else if api.get(dx, 1).variant == Variant::Empty {
-        api.set(dx, 1, particle);
-        api.set(0, 0, EMPTY_CELL);
-    } else if variant_type(nbr.variant).variant_property == VariantProperty::Liquid {
-        api.set(0, 0, nbr);
-        api.set(0, 1, particle);
-    } else {
-        api.set(0, 0, particle);
-    }
-    false
+fn update_sand(mut particle: Particle, mut api: API) -> bool {
+    true
 }
 
 fn update_salt(particle: Particle, mut api: API) -> bool {
-    let dx = api.rand_dir();
-    let nbr = api.get(0, 1);
-
-    if nbr.variant == Variant::Empty {
-        api.set(dx, 1, particle);
-        api.set(0, 0, EMPTY_CELL);
-    } else if api.get(dx, 1).variant == Variant::Empty {
-        api.set(dx, 1, particle);
-        api.set(0, 0, EMPTY_CELL);
-    } else if variant_type(nbr.variant).variant_property == VariantProperty::Liquid {
-        api.set(0, 0, nbr);
-        api.set(0, 1, particle);
-    }
     false
 }
 
@@ -173,25 +149,18 @@ fn update_water(particle: Particle, mut api: API) -> bool {
     let dx = api.rand_dir();
     let mut nbr = api.get(0, 1);
 
-    if nbr.variant == Variant::Salt {
-        if nbr.dissolve_to(variant_type(particle.variant).source_variant) {
-            api.set(0, 1, particle);
-
-            if nbr.strength > 0 {
-                nbr.strength -= 1;
-                api.set(0, 0, nbr);
-            } else {
-                api.set(
-                    0,
-                    0,
-                    Particle {
-                        variant: Variant::SaltWater,
-                        ..particle
-                    },
-                );
-            }
-        }
+    if particle.temperature > 100. {
+        api.set(
+            0,
+            0,
+            Particle {
+                variant: Variant::WTVP,
+                ..particle
+            },
+        );
+        return true;
     }
+
     false
 }
 
@@ -298,11 +267,11 @@ fn update_co2(mut particle: Particle, mut api: API) -> bool {
     false
 }
 
-pub fn particle_to_color(variant: Variant) -> (u8, u8, u8) {
+pub fn particle_to_color(variant: Variant) -> (u8, u8, u8, u8) {
     let res = match variant {
-        Variant::Empty => VARIANTS[0].color,
-        Variant::Wall => VARIANTS[1].color,
-        _ => variant_type(variant).color,
+        Variant::Empty => VARIANTS[0].color.to_rgba8(),
+        Variant::Wall => VARIANTS[1].color.to_rgba8(),
+        _ => variant_type(variant).color.to_rgba8(),
     };
 
     res

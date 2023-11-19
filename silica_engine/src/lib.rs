@@ -1,4 +1,6 @@
 pub mod api;
+pub mod colors;
+
 pub mod group;
 pub mod particle;
 pub mod prelude;
@@ -33,3 +35,5 @@ pub const DARK_BLUE: (u8, u8, u8) = (0, 0, 128);
 pub const DARK_RED: (u8, u8, u8) = (128, 0, 0);
 pub const RUST: (u8, u8, u8) = (183, 65, 14);
 pub const IRON: (u8, u8, u8) = (183, 65, 14);
+
+pub const MAX_TEMP: f32 = 9275.0;

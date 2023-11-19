@@ -9,13 +9,8 @@ use crate::{
     variant_type,
 };
 
-#[derive(Clone, Copy, PartialEq)]
-pub struct Wind {
-    pub dx: i32,
-    pub dy: i32,
-    pressure: u8,
-    density: u8,
-}
+pub const GRAVITY: f32 = 10f32;
+pub const SPREAD_FACTOR: f32 = 0.1f32;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct Environment {
@@ -25,7 +20,6 @@ pub struct Environment {
 }
 pub struct World {
     pub(crate) particles: Vec<Particle>,
-    pub wind: Vec<Wind>,
     pub environment: Vec<Environment>,
     pub width: i32,
     pub height: i32,
@@ -127,13 +121,13 @@ impl World {
             // take iterator instead
 
             // iterate in reverse order
-            for x in (0..self.width - 1).rev() {
+            for x in (0..self.width) {
                 let scanx = if self.generation % 2 == 0 {
                     self.width - (x + 1)
                 } else {
                     x
                 };
-                for y in (0..self.height).rev() {
+                for y in (0..self.height) {
                     let idx = self.get_idx(scanx as i32, y as i32);
 
                     let particle = self.get_particle(scanx as i32, y as i32);
@@ -203,103 +197,70 @@ impl World {
             return false;
         }
 
+        // decrease temperature over time to variant base temperature
+        let temperature = particle.temperature;
+        let base_temperature = variant_type::variant_type(particle.variant).base_temperature;
+        let temperature_decay_rate = 0.01; // Adjust this rate based on your preference
+
+        particle.temperature += (base_temperature - temperature) * temperature_decay_rate;
+
         match variant_type::variant_type(particle.variant).variant_property {
             VariantProperty::Powder => {
-                // super basic falling sand impl
-                let below = api.get(0, 1);
-                let left = api.get(-1, 1);
-                let right = api.get(1, 1);
-                if below.variant == Variant::Empty {
-                    api.set(0, 1, particle);
-                    api.set(0, 0, EMPTY_CELL);
-                    return true;
-                }
+                let dx = api.rand_dir();
+                let nbr = api.get(0, 1);
 
-                if left.variant == Variant::Empty && right.variant == Variant::Empty {
-                    let dir = api.rand_dir();
-                    api.set(dir, 1, particle);
+                if nbr.variant == Variant::Empty {
+                    api.set(dx, 1, particle);
                     api.set(0, 0, EMPTY_CELL);
-                    return true;
+                } else if api.get(dx, 1).variant == Variant::Empty {
+                    api.set(dx, 1, particle);
+                    api.set(0, 0, EMPTY_CELL);
+                } else if variant_type(nbr.variant).variant_property == VariantProperty::Liquid {
+                    api.set(0, 0, nbr);
+                    api.set(0, 1, particle);
+                } else {
+                    api.set(0, 0, particle);
                 }
             }
 
             VariantProperty::Liquid => {
-                // super basic falling and spreading water impl
-                let below = api.get(0, 1);
-                let below_left = api.get(-1, 1);
-                let below_right = api.get(1, 1);
-                let idx = api.world.get_idx(api.x, api.y);
+                let dx = api.rand_dir();
+                let nbr = api.get(0, 1);
 
-                // Move down if the cell below is empty
-                if below.variant == Variant::Empty {
-                    api.set(0, 1, particle);
+                if nbr.variant == Variant::Empty {
+                    api.set(dx, 1, particle);
                     api.set(0, 0, EMPTY_CELL);
-                    return true;
-                }
-                // Try to spread horizontally if there's space to the left or right
-                else if below_left.variant == Variant::Empty {
-                    // swap with below left
-                    // swap current index with below left
-                    api.world.particles.swap(idx, idx - 1);
-                    return true;
-                } else if below_right.variant == Variant::Empty {
-                    // swap with below right
-                    // swap current index with below right
-                    api.world.particles.swap(idx, idx + 1);
-                    return true;
+                } else if api.get(dx, 1).variant == Variant::Empty {
+                    api.set(dx, 1, particle);
+                    api.set(0, 0, EMPTY_CELL);
+                } else {
+                    api.set(0, 0, particle);
                 }
 
-                // water can also move two cells down if there's space
+                // check bottom weight
+                let nbb = api.get(0, 1);
+                if variant_type(nbb.variant).weight > variant_type(particle.variant).weight {
+                    api.set(0, 0, nbb);
+                    api.set(0, 1, particle);
+                }
             }
 
             VariantProperty::Gas => {
-                let (dx, dy) = api.rand_vec();
-
-                let nbr = api.get(dx, dy);
-                // api.set_fluid(Wind {
-                //     dx: 0,
-                //     dy: 0,
-                //     pressure: 5,
-                //     density: 0,
-                // });
-                if particle.rb == 0 {
-                    api.set(0, 0, Particle { rb: 5, ..particle });
-                }
-
-                let nbr_type = &variant_type::variant_type(nbr.variant).variant_property;
+                // basic sand behavior but upwards
+                let dx = api.rand_dir();
+                let nbr = api.get(dx, -1);
 
                 if nbr.variant == Variant::Empty {
-                    if particle.rb < 3 {
-                        //single molecule
-                        api.set(0, 0, EMPTY_CELL);
-                        api.set(dx, dy, particle);
-                    } else {
-                        api.set(0, 0, Particle { rb: 1, ..particle });
-                        api.set(
-                            dx,
-                            dy,
-                            Particle {
-                                rb: particle.rb - 1,
-                                ..particle
-                            },
-                        );
-                    }
-                } else if (dx != 0 || dy != 0) && *nbr_type == VariantProperty::Gas && nbr.rb < 4 {
-                    // if (cell.rb < 2) {
+                    api.set(dx, -1, particle);
                     api.set(0, 0, EMPTY_CELL);
-                    // }
-                    api.set(
-                        dx,
-                        dy,
-                        Particle {
-                            rb: nbr.rb + particle.rb,
-                            ..particle
-                        },
-                    );
+                } else if api.get(dx, -1).variant == Variant::Empty {
+                    api.set(dx, -1, particle);
+                    api.set(0, 0, EMPTY_CELL);
+                } else {
+                    api.set(0, 0, particle);
                 }
-                // spread opinion
             }
-
+            // spread opinion
             _ => (),
         }
         let state = &particle.update(api);
@@ -313,7 +274,7 @@ impl World {
                 let idx = self.get_idx(x as i32, y as i32);
                 let particle = self.get_particle(x as i32, y as i32);
                 let variant = particle.variant;
-                let color = particle::particle_to_color(variant);
+                let color = particle::particle_to_color(variant).to_rgba8();
                 self.particles[idx].ra = color.0;
                 self.particles[idx].rb = color.1;
                 self.particles[idx].clock = self.generation;
@@ -322,15 +283,6 @@ impl World {
     }
     pub fn new(width: i32, height: i32) -> World {
         let particles = (0..width * height).map(|_| EMPTY_CELL).collect();
-        let wind: Vec<Wind> = (0..width * height)
-            .map(|_| Wind {
-                dx: 0,
-                dy: 0,
-                pressure: 0,
-                density: 0,
-            })
-            .collect();
-
         let environment: Vec<Environment> = (0..width * height)
             .map(|_| Environment {
                 pressure: 0.,
@@ -340,7 +292,6 @@ impl World {
             .collect();
         World {
             particles,
-            wind: wind,
             environment: environment,
             width: width,
             height: height,
@@ -381,11 +332,6 @@ impl World {
         self.environment[idx].ambient_pressure
     }
 
-    pub fn get_wind(&self, x: i32, y: i32) -> Wind {
-        let idx = self.get_idx(x, y);
-        return self.wind[idx];
-    }
-
     pub fn get_particle(&self, x: i32, y: i32) -> Particle {
         if x < 0 || x > self.width - 1 || y < 0 || y > self.height - 1 {
             return EMPTY_CELL;
@@ -409,58 +355,6 @@ impl World {
 
     pub fn is_modified(&self) -> bool {
         self.modified_state
-    }
-
-    fn blow_wind(particle: Particle, wind: Wind, mut api: API) {
-        if particle.clock > api.world.generation {
-            return;
-        }
-
-        if particle.variant == Variant::Empty {
-            return;
-        }
-
-        let mut dx = 0;
-        let mut dy = 0;
-
-        let thresh = match particle.variant {
-            Variant::Empty => 500,
-            Variant::Wall => 500,
-            Variant::Sand => 30,
-            Variant::Fire => 5,
-            Variant::Smoke => 3,
-            _ => 40,
-        };
-
-        let wx = (wind.dy as i32) - 126;
-        let wy = (wind.dx as i32) - 126;
-        if wx > thresh {
-            dx = 1;
-        }
-
-        if wy > thresh {
-            dy = 1;
-        }
-
-        if wx < -thresh {
-            dx = -1;
-        }
-
-        if wy < -thresh {
-            dy = -1;
-        }
-
-        if (dx != 0 || dy != 0) && api.get(dx, dy).variant == Variant::Empty {
-            api.set(0, 0, EMPTY_CELL);
-            if dy == -1
-                && api.get(dx, -2).variant == Variant::Empty
-                && (particle.variant == Variant::Sand || particle.variant == Variant::Water)
-            {
-                dy = -2;
-            }
-
-            api.set(dx, dy, particle);
-        }
     }
 
     pub fn set_pressure(&mut self, x: i32, y: i32, pressure: f32) {

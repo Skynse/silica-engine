@@ -1,10 +1,9 @@
 use rand::Rng;
 use std::convert::TryInto;
 use variant_type::{VariantProperty, FLAG_IMMUTABLE};
-use world::Wind;
 
 use crate::{
-    particle::{self, Particle},
+    particle::{self, Particle, Velocity},
     variant::Variant,
     variant_type, world,
 };
@@ -37,7 +36,27 @@ impl<'a> API<'a> {
         self.world.tick();
     }
 
-    pub fn swap(&mut self, x1: i32, y1: i32, x2: i32, y2: i32) {
+    pub fn swap(&mut self, idx0: usize, idx1: usize) {
+        if idx0 > self.world.particles.len() || idx1 > self.world.particles.len() {
+            return;
+        }
+        let mut c1 = self.world.particles[idx0];
+        let mut c2 = self.world.particles[idx1];
+
+        if variant_type::variant_type(c1.variant).flags & FLAG_IMMUTABLE
+            | variant_type::variant_type(c2.variant).flags & FLAG_IMMUTABLE
+            == 0
+        {
+            return;
+        }
+
+        c1.modified = self.world.modified_state;
+        c2.modified = self.world.modified_state;
+        self.world.particles[idx0] = c2;
+        self.world.particles[idx1] = c1;
+    }
+
+    pub fn swap_dirty(&mut self, x1: i32, y1: i32, x2: i32, y2: i32) {
         let idx1 = self.world.get_idx(x1, y1);
         let idx2 = self.world.get_idx(x2, y2);
         let mut c1 = self.world.particles[idx1];
@@ -59,19 +78,8 @@ impl<'a> API<'a> {
         self.world.particles[idx]
     }
 
-    pub fn get_fluid(&mut self) -> Wind {
-        let idx = self.world.get_idx(self.x, self.y);
-        self.world.wind[idx]
-    }
-
     pub fn get_idx(&mut self, x: i32, y: i32) -> usize {
         self.world.get_idx(x, y)
-    }
-
-    pub fn set_fluid(&mut self, dx: i32, dy: i32) {
-        let idx = self.world.get_idx(self.x, self.y);
-        self.world.wind[idx].dx = dx;
-        self.world.wind[idx].dy = dy;
     }
 
     pub fn set_temperature(&mut self, x: i32, y: i32, temperature: f32) {
@@ -141,7 +149,7 @@ impl<'a> API<'a> {
                 clock: self.world.generation,
                 strength: 0,
                 modified: false,
-                velocity: 0,
+                velocity: Velocity { x: 0., y: 0. },
                 temperature: 0.,
             };
         }
