@@ -31,9 +31,10 @@ pub const WALL_COLOR: ParticleColor = ParticleColor {
     a: 255,
 };
 pub const SAND_COLOR: ParticleColor = ParticleColor {
-    r: 194,
-    g: 178,
-    b: 128,
+    //rgb(215, 172, 86)
+    r: 215,
+    g: 172,
+    b: 86,
     a: 255,
 };
 pub const WATER_COLOR: ParticleColor = ParticleColor {
@@ -61,9 +62,9 @@ pub const SALT_COLOR: ParticleColor = ParticleColor {
     a: 255,
 };
 pub const SALT_WATER_COLOR: ParticleColor = ParticleColor {
-    r: 0,
-    g: 0,
-    b: 255,
+    r: 50,
+    g: 164,
+    b: 168,
     a: 255,
 };
 pub const CARBON_COLOR: ParticleColor = ParticleColor {

@@ -55,12 +55,23 @@ impl Particle {
     }
 }
 
-pub fn particle_to_color(variant: Variant) -> ParticleColor {
-    let res = match variant {
+pub fn particle_to_color(particle: Particle) -> ParticleColor {
+    let res = match particle.variant {
         Variant::Empty => VARIANTS[0].color,
         Variant::Wall => VARIANTS[1].color,
-        Variant::Sand => VARIANTS[2].color,
-        Variant::Water => VARIANTS[3].color,
+        Variant::Sand => {
+            // vary color based on ra
+            let mut color = VARIANTS[2].color;
+            color.whiten(particle.temperature);
+
+            color.vary_color(particle.ra as i32)
+        }
+        Variant::Water => {
+            // vary color based on ra
+            let mut color = VARIANTS[3].color;
+
+            color.vary_color(particle.ra as i32)
+        }
         Variant::Fire => VARIANTS[4].color,
         Variant::Smoke => VARIANTS[5].color,
         Variant::Salt => VARIANTS[6].color,
@@ -73,28 +84,10 @@ pub fn particle_to_color(variant: Variant) -> ParticleColor {
         Variant::IRON => VARIANTS[13].color,
         Variant::CO2 => VARIANTS[14].color,
         Variant::WTVP => VARIANTS[15].color,
+        Variant::GOL => VARIANTS[16].color,
     };
 
     res
-}
-pub fn vary_color(color: (u8, u8, u8), variance: u8) -> (u8, u8, u8) {
-    // grainy color not deviating too much from original color
-    // DO NOT OVERFLOW SUBTRACTION
-    let r = if color.0 > variance {
-        color.0 - variance
-    } else {
-        0
-    };
-
-    (
-        r.wrapping_add(rand::thread_rng().gen_range(0..variance * 2)),
-        color
-            .1
-            .wrapping_add(rand::thread_rng().gen_range(0..variance * 2)),
-        color
-            .2
-            .wrapping_add(rand::thread_rng().gen_range(0..variance * 2)),
-    )
 }
 
 pub fn interpolate(

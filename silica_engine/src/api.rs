@@ -32,6 +32,24 @@ impl<'a> API<'a> {
         self.world.particles[idx].clock = self.world.generation.wrapping_add(1);
     }
 
+    pub fn get_nbrs(&mut self) -> Vec<Particle> {
+        let mut nbrs = Vec::new();
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                if dx == 0 && dy == 0 {
+                    continue;
+                }
+                nbrs.push(self.get(dx, dy));
+            }
+        }
+        nbrs
+    }
+
+    pub fn once_per(&mut self, n: i32) -> bool {
+        let i = self.rand_int(n);
+        i == 0
+    }
+
     pub fn update_world(&mut self) {
         self.world.tick();
     }

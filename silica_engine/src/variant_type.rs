@@ -1,7 +1,7 @@
-use rand::Rng;
-
 use crate::{particle::Particle, variant::Variant};
-pub const VARIANT_COUNT: usize = 16;
+
+use rand::Rng;
+pub const VARIANT_COUNT: usize = 17;
 use crate::colors::*;
 
 #[derive(PartialEq, Copy, Clone)]
@@ -19,6 +19,7 @@ pub const FLAG_BURNS: u8 = 0b00000001;
 pub const FLAG_EXPLOSIVE: u8 = 0b00000010;
 pub const FLAG_IMMUTABLE: u8 = 0b00000100;
 pub const FLAG_IGNITES: u8 = 0b00001000;
+pub const FLAG_ALIVE: u8 = 0b00100000;
 
 impl VariantType {
     pub fn has_flag(&self, flag: u8) -> bool {
@@ -53,7 +54,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
     },
     // 1 Wall
     VariantType {
-        weight: 0,
+        weight: 255,
         strength: 0,
         color: WALL_COLOR,
         source_variant: Variant::Wall,
@@ -120,7 +121,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
     },
     // 7 SaltWater
     VariantType {
-        weight: 32,
+        weight: 38,
         strength: 0,
         color: SALT_WATER_COLOR,
         source_variant: Variant::SaltWater,
@@ -218,6 +219,22 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         base_temperature: 22.,
         name: "WTVP",
     },
+    // 16 GOL\
+    VariantType {
+        weight: 0,
+        strength: 16,
+        color: ParticleColor {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 255,
+        },
+        source_variant: Variant::GOL,
+        variant_property: VariantProperty::Solid,
+        flags: 0,
+        base_temperature: 22.,
+        name: "GOL",
+    },
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -233,13 +250,92 @@ pub struct HSV {
     pub s: f32,
     pub v: f32,
 }
+
+impl HSV {
+    pub fn hsv_to_rgb(&self) -> ParticleColor {
+        let c = self.v * self.s;
+        let x = c * (1. - ((self.h / 60.) % 2. - 1.).abs());
+        let m = self.v - c;
+
+        let (r, g, b) = if self.h < 60. {
+            (c, x, 0.)
+        } else if self.h < 120. {
+            (x, c, 0.)
+        } else if self.h < 180. {
+            (0., c, x)
+        } else if self.h < 240. {
+            (0., x, c)
+        } else if self.h < 300. {
+            (x, 0., c)
+        } else {
+            (c, 0., x)
+        };
+
+        ParticleColor {
+            r: ((r + m) * 255.) as u8,
+            g: ((g + m) * 255.) as u8,
+            b: ((b + m) * 255.) as u8,
+            a: 255,
+        }
+    }
+}
+
+struct HSL {
+    pub h: f32,
+    pub s: f32,
+    pub l: f32,
+}
+
+impl HSL {
+    pub fn hsl_to_rgb(&self) -> ParticleColor {
+        let c = (1. - (2. * self.l - 1.).abs()) * self.s;
+        let x = c * (1. - ((self.h / 60.) % 2. - 1.).abs());
+        let m = self.l - c / 2.;
+
+        let (r, g, b) = if self.h < 60. {
+            (c, x, 0.)
+        } else if self.h < 120. {
+            (x, c, 0.)
+        } else if self.h < 180. {
+            (0., c, x)
+        } else if self.h < 240. {
+            (0., x, c)
+        } else if self.h < 300. {
+            (x, 0., c)
+        } else {
+            (c, 0., x)
+        };
+
+        ParticleColor {
+            r: ((r + m) * 255.) as u8,
+            g: ((g + m) * 255.) as u8,
+            b: ((b + m) * 255.) as u8,
+            a: 255,
+        }
+    }
+}
+
 impl ParticleColor {
     pub fn to_u32(&self) -> u32 {
         (self.a as u32) << 24 | (self.r as u32) << 16 | (self.g as u32) << 8 | self.b as u32
     }
 
+    // whiten based on given temperature value
+    pub fn whiten(&mut self, temperature: f32) {
+        let mut hsv = self.rgb_to_hsv();
+        hsv.s += temperature / 100.;
+        hsv.v += temperature / 100.;
+        hsv.h = hsv.h;
+
+        *self = hsv.hsv_to_rgb();
+    }
+
     pub fn to_rgba8(&self) -> (u8, u8, u8, u8) {
         (self.r, self.g, self.b, self.a)
+    }
+
+    pub fn to_rgb8(&self) -> (u8, u8, u8) {
+        (self.r, self.g, self.b)
     }
 
     pub fn rgb_to_hsv(&self) -> HSV {
@@ -295,7 +391,13 @@ impl ParticleColor {
         hsv.s * sat_factor + self.brightness() * bright_factor
     }
 
-    pub fn vary_color(&self, variance: u8) {
-        /* */
+    pub fn vary_color(&mut self, amount: i32) -> ParticleColor {
+        // slightly adjust lightness and saturation
+        let mut hsv = self.rgb_to_hsv();
+        hsv.s += amount as f32 / 200.;
+        hsv.v += amount as f32 / 200.;
+        hsv.h = hsv.h;
+
+        hsv.hsv_to_rgb()
     }
 }
