@@ -5,7 +5,7 @@ pub use crate::{
     particle::Particle,
     variant_type::{variant_type, VariantProperty, VARIANTS},
 };
-use crate::{particle::Velocity, prelude::GRAVITY};
+use crate::{particle::Velocity, prelude::VariantType};
 
 pub static EMPTY_CELL: Particle = Particle {
     variant: Variant::Empty,
@@ -43,6 +43,9 @@ pub enum Variant {
 
     //GASES
     WTVP = 15, //water vapor
+
+    //LIFE
+    GOL = 16, //game of life
 }
 
 impl Display for Variant {
@@ -52,6 +55,9 @@ impl Display for Variant {
 }
 
 impl Variant {
+    pub fn is_empty(&self) -> bool {
+        *self == Variant::Empty
+    }
     pub fn update(&self, particle: Particle, api: API) -> bool {
         match self {
             Variant::Sand => update_sand(particle, api),
@@ -67,9 +73,17 @@ impl Variant {
             Variant::HELM => update_helium(particle, api),
             Variant::NITR => update_nitrogen(particle, api),
             Variant::CO2 => update_co2(particle, api),
+            Variant::WTVP => update_wtvp(particle, api),
+            Variant::GOL => update_gol(particle, api),
+            Variant::Empty => update_empty(particle, api),
 
             _ => false,
         }
+    }
+
+    pub fn get_type(&self) -> VariantType {
+        let variant_type = variant_type(*self);
+        *variant_type
     }
 
     pub fn get_name(&self) -> &'static str {
@@ -90,24 +104,78 @@ impl Variant {
             Variant::NITR => "Nitrogen",
             Variant::CO2 => "CO2",
             Variant::WTVP => "Steam",
+            Variant::GOL => "Game of Life",
         }
     }
 }
 
-fn update_sand(mut particle: Particle, mut api: API) -> bool {
+fn update_empty(_particle: Particle, mut api: API) -> bool {
+    let mut alive_nbrs = 0;
+    if api.get(0, 1).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(0, -1).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(1, 0).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(-1, 0).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(1, 1).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(-1, -1).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(1, -1).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(-1, 1).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if alive_nbrs == 3 {
+        api.set(0, 0, Particle::new(Variant::GOL, 0, 0));
+        return true;
+    }
+    false
+}
+
+fn update_sand(_particle: Particle, _api: API) -> bool {
     true
 }
 
 fn update_salt(particle: Particle, mut api: API) -> bool {
+    let mut nbrs = api.get_nbrs();
+
+    for nbr in nbrs.iter_mut() {
+        if nbr.variant == Variant::Water {
+            if nbr.dissolve_to(Variant::SaltWater) {
+                api.set(0, 0, *nbr);
+                api.set(0, 1, particle);
+            }
+            return true;
+        }
+    }
     false
 }
 
-fn update_salt_water(particle: Particle, mut api: API) -> bool {
+fn update_salt_water(_particle: Particle, _api: API) -> bool {
+    // swap down with water if water above
     false
 }
 
-fn update_fire(particle: Particle, mut api: API) -> bool {
-    if api.once_in(10) {
+fn update_fire(mut particle: Particle, mut api: API) -> bool {
+    if api.once_per(50) && particle.dissolve_to(Variant::Empty) {
         api.set(
             0,
             0,
@@ -119,35 +187,13 @@ fn update_fire(particle: Particle, mut api: API) -> bool {
         return true;
     }
 
-    let ra = particle.ra;
-
-    if ra > 0 {
-        api.set(
-            0,
-            0,
-            Particle {
-                ra: ra - 1,
-                ..particle
-            },
-        );
-    } else {
-        api.set(0, 0, EMPTY_CELL);
-    }
-
-    // set color based on time lived
-    // more yellow if new
-
-    // tendency to rise and spread
-    let dx = api.rand_dir();
-    let nbr = api.get(dx, -1);
-
-    api.world.set_temperature(api.x, api.y, 1000.);
+    api.world.set_temperature(api.x, api.y, 800.);
     false
 }
 
 fn update_water(particle: Particle, mut api: API) -> bool {
-    let dx = api.rand_dir();
-    let mut nbr = api.get(0, 1);
+    let _dx = api.rand_dir();
+    let _nbr = api.get(0, 1);
 
     if particle.temperature > 100. {
         api.set(
@@ -188,7 +234,7 @@ fn update_iron(mut particle: Particle, mut api: API) -> bool {
     false
 }
 
-fn update_oxygen(mut particle: Particle, mut api: API) -> bool {
+fn update_oxygen(particle: Particle, mut api: API) -> bool {
     /*
     if api.once_in(10) && particle.dissolve_to(Variant::Empty) {
         api.set(0, 0, EMPTY_CELL);
@@ -233,6 +279,67 @@ fn update_oxygen(mut particle: Particle, mut api: API) -> bool {
     }
 
     false
+}
+
+fn update_wtvp(particle: Particle, mut api: API) -> bool {
+    if particle.temperature < 100. && particle.temperature > 0. {
+        api.set(
+            0,
+            0,
+            Particle {
+                variant: Variant::Water,
+                ..particle
+            },
+        );
+        return true;
+    }
+
+    false
+}
+
+fn update_gol(particle: Particle, mut api: API) -> bool {
+    let mut alive_nbrs: u32 = 0;
+
+    if api.get(0, 1).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(0, -1).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(1, 0).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(-1, 0).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(1, 1).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(-1, -1).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(1, -1).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if api.get(-1, 1).variant == Variant::GOL {
+        alive_nbrs += 1;
+    }
+
+    if alive_nbrs < 2 || alive_nbrs > 3 {
+        api.set(0, 0, EMPTY_CELL);
+    }
+
+    if particle.temperature > 24.0 || particle.temperature < 20.0 {
+        api.set(0, 0, EMPTY_CELL);
+    }
+    true
 }
 
 fn update_hydrogen(mut particle: Particle, mut api: API) -> bool {

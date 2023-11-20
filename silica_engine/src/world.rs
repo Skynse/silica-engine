@@ -121,19 +121,22 @@ impl World {
             // take iterator instead
 
             // iterate in reverse order
-            for x in (0..self.width) {
+            for x in (0..self.width).rev() {
                 let scanx = if self.generation % 2 == 0 {
                     self.width - (x + 1)
                 } else {
                     x
                 };
-                for y in (0..self.height) {
+                for y in (0..self.height).rev() {
                     let idx = self.get_idx(scanx as i32, y as i32);
 
                     let particle = self.get_particle(scanx as i32, y as i32);
                     if particle.modified {
                         self.modified_indices.insert(idx);
+                        continue;
                     }
+
+                    // self.distribute_cell_temperature(x, y);
 
                     self.modified_state = World::update_particle(
                         particle,
@@ -144,32 +147,30 @@ impl World {
                         },
                     );
 
-                    let idx = self.get_idx(x as i32, y as i32);
-                    let mut temperature = self.get_temperature(x, y);
+                    // inner
 
-                    // Adjust temperature towards the baseline value
-                    let baseline_temperature = 22.0;
-                    let temperature_decay_rate = 0.1; // Adjust this rate based on your preference
+                    let cell_temp = self.get_temperature(x, y);
+                    if cell_temp > 0. {
+                        let mut top = self.environment[self.get_idx(x, y - 1)];
+                        let mut bottom = self.environment[self.get_idx(x, y + 1)];
+                        let mut left = self.environment[self.get_idx(x - 1, y)];
+                        let mut right = self.environment[self.get_idx(x + 1, y)];
 
-                    temperature += (baseline_temperature - temperature) * temperature_decay_rate;
+                        let heat = cell_temp / 4.;
 
-                    // Share temperature with neighbors
-                    for dx in -1..=1 {
-                        for dy in -1..=1 {
-                            if dx != 0 || dy != 0 {
-                                let nbr_x = (x as i32 + dx).clamp(0, self.width - 1) as i32;
-                                let nbr_y = (y as i32 + dy).clamp(0, self.height - 1) as i32;
+                        // share heat with neighbors
 
-                                let nbr_temperature = self.get_temperature(nbr_x, nbr_y);
-                                temperature += (nbr_temperature - temperature) * 0.25;
-                                // Adjust this rate based on your preference
-                            }
-                        }
+                        top.ambient_temperature += heat;
+                        bottom.ambient_temperature += heat;
+                        left.ambient_temperature += heat;
+                        right.ambient_temperature += heat;
                     }
-
-                    self.set_temperature(x, y, temperature);
+                    // decrease temperature
                 }
-            }
+            } //end gen
+
+            // ambient heat calculation
+            // take a 3x3 grid and share temp based on center temp until all cells are the same
 
             self.generation = self.generation.wrapping_add(1);
             self.modified_indices.clear();
@@ -189,18 +190,22 @@ impl World {
     }
 
     fn update_particle(mut particle: Particle, mut api: API) -> bool {
-        if particle.clock > api.world.generation {
+        if particle.modified {
             return false;
         }
 
-        if variant_type::variant_type(particle.variant).has_flag(variant_type::FLAG_IMMUTABLE) {
+        if particle
+            .variant
+            .get_type()
+            .has_flag(variant_type::FLAG_IMMUTABLE)
+        {
             return false;
         }
 
         // decrease temperature over time to variant base temperature
         let temperature = particle.temperature;
         let base_temperature = variant_type::variant_type(particle.variant).base_temperature;
-        let temperature_decay_rate = 0.01; // Adjust this rate based on your preference
+        let temperature_decay_rate = 0.001; // Adjust this rate based on your preference
 
         particle.temperature += (base_temperature - temperature) * temperature_decay_rate;
 
@@ -224,25 +229,103 @@ impl World {
             }
 
             VariantProperty::Liquid => {
-                let dx = api.rand_dir();
-                let nbr = api.get(0, 1);
+                let mut dx = api.rand_dir();
+                let below = api.get(0, 1);
+                let dx1 = api.get(dx, 1);
+                if particle.variant.get_type().weight > below.variant.get_type().weight {
+                    //swap
+                    api.swap(0, 1);
+                }
 
-                if nbr.variant == Variant::Empty {
+                // let mut dx0 = api.get(dx, 0);
+                //fall down
+                if below.variant == Variant::Empty {
+                    api.set(0, 0, below);
+                    let mut ra = particle.ra;
+                    if api.once_in(20) {
+                        //randomize direction when falling sometimes
+                        ra = 100 + api.rand_int(50) as u8;
+                    }
+                    api.set(0, 1, Particle { ra, ..particle });
+
+                    return true;
+                } else if dx1.variant == Variant::Empty {
+                    //fall diagonally
+                    api.set(0, 0, dx1);
                     api.set(dx, 1, particle);
+                    return true;
+                } else if api.get(-dx, 1).variant == Variant::Empty {
                     api.set(0, 0, EMPTY_CELL);
-                } else if api.get(dx, 1).variant == Variant::Empty {
-                    api.set(dx, 1, particle);
-                    api.set(0, 0, EMPTY_CELL);
+                    api.set(-dx, 1, particle);
+                    return true;
+                }
+                let left = particle.ra % 2 == 0;
+                dx = if left { 1 } else { -1 };
+                let dx0 = api.get(dx, 0);
+                let dxd = api.get(dx * 2, 0);
+
+                if dx0.variant == Variant::Empty && dxd.variant == Variant::Empty {
+                    // scoot double
+                    api.set(0, 0, dxd);
+                    api.set(2 * dx, 0, Particle { rb: 6, ..particle });
+                    let (dx, dy) = api.rand_vec(); //rand_vec_8
+                    let nbr = api.get(dx, dy);
+
+                    // spread opinion
+                    if nbr.variant == Variant::Water {
+                        if nbr.ra % 2 != particle.ra % 2 {
+                            api.set(
+                                dx,
+                                dy,
+                                Particle {
+                                    ra: particle.ra,
+                                    ..particle
+                                },
+                            )
+                        }
+                    }
+                } else if dx0.variant == Variant::Empty {
+                    api.set(0, 0, dx0);
+                    api.set(dx, 0, Particle { rb: 3, ..particle });
+                    let (dx, dy) = api.rand_vec(); //rand_vec_8
+                    let nbr = api.get(dx, dy);
+                    if nbr.variant == Variant::Water {
+                        if nbr.ra % 2 != particle.ra % 2 {
+                            api.set(
+                                dx,
+                                dy,
+                                Particle {
+                                    ra: particle.ra,
+                                    ..particle
+                                },
+                            )
+                        }
+                    }
+                } else if particle.rb == 0 {
+                    if api.get(-dx, 0).variant == Variant::Empty {
+                        // bump
+                        api.set(
+                            0,
+                            0,
+                            Particle {
+                                ra: ((particle.ra as i32) + dx) as u8,
+                                ..particle
+                            },
+                        );
+                    }
                 } else {
-                    api.set(0, 0, particle);
+                    // become less certain (more bumpable)
+                    api.set(
+                        0,
+                        0,
+                        Particle {
+                            rb: particle.rb - 1,
+                            ..particle
+                        },
+                    );
                 }
 
-                // check bottom weight
-                let nbb = api.get(0, 1);
-                if variant_type(nbb.variant).weight > variant_type(particle.variant).weight {
-                    api.set(0, 0, nbb);
-                    api.set(0, 1, particle);
-                }
+                // weight distribution
             }
 
             VariantProperty::Gas => {
@@ -273,8 +356,8 @@ impl World {
             for y in 0..self.height {
                 let idx = self.get_idx(x as i32, y as i32);
                 let particle = self.get_particle(x as i32, y as i32);
-                let variant = particle.variant;
-                let color = particle::particle_to_color(variant).to_rgba8();
+                let _variant = particle.variant;
+                let color = particle::particle_to_color(particle).to_rgba8();
                 self.particles[idx].ra = color.0;
                 self.particles[idx].rb = color.1;
                 self.particles[idx].clock = self.generation;
@@ -286,7 +369,7 @@ impl World {
         let environment: Vec<Environment> = (0..width * height)
             .map(|_| Environment {
                 pressure: 0.,
-                ambient_temperature: 0.,
+                ambient_temperature: 22.,
                 ambient_pressure: 0.,
             })
             .collect();
@@ -319,12 +402,32 @@ impl World {
 
 impl World {
     pub fn get_idx(&self, x: i32, y: i32) -> usize {
+        if x < 0 || x > self.width - 1 || y < 0 || y > self.height - 1 {
+            return 0;
+        }
         (x + y * self.width as i32) as usize
     }
 
     pub fn get_temperature(&self, x: i32, y: i32) -> f32 {
         let idx = self.get_idx(x, y);
         self.environment[idx].ambient_temperature
+    }
+
+    pub fn distribute_cell_temperature(&mut self, x: i32, y: i32) {
+        // not working
+        let mut top = self.get_particle(x, y);
+        let mut bottom = self.get_particle(x, y + 1);
+        let mut left = self.get_particle(x - 1, y);
+        let mut right = self.get_particle(x + 1, y);
+
+        let heat = self.get_temperature(x, y) / 4.;
+
+        // share heat with neighbors
+
+        top.temperature += heat;
+        bottom.temperature += heat;
+        left.temperature += heat;
+        right.temperature += heat;
     }
 
     pub fn get_pressure(&self, x: i32, y: i32) -> f32 {
@@ -350,7 +453,8 @@ impl World {
             return;
         }
         let idx = self.get_idx(x, y);
-        self.particles[idx].temperature += heat;
+        self.particles[idx].temperature =
+            (self.particles[idx].temperature + heat).clamp(-200., 9275.)
     }
 
     pub fn is_modified(&self) -> bool {
@@ -372,6 +476,13 @@ impl World {
 
         let idx = self.get_idx(x, y);
         self.environment[idx].ambient_temperature = temperature;
+    }
+
+    pub fn get_particle_count(&self) -> usize {
+        self.particles
+            .iter()
+            .filter(|p| p.variant != Variant::Empty && p.variant != Variant::Wall)
+            .count()
     }
 
     pub fn set_particle(&mut self, x: i32, y: i32, variant: Variant) {

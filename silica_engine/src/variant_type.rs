@@ -1,10 +1,9 @@
-use rand::Rng;
+use crate::variant::Variant;
 
-use crate::{particle::Particle, variant::Variant};
-pub const VARIANT_COUNT: usize = 16;
+pub const VARIANT_COUNT: usize = 17;
 use crate::colors::*;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub struct VariantType {
     pub weight: u8,
     pub color: ParticleColor,
@@ -13,11 +12,13 @@ pub struct VariantType {
     pub base_temperature: f32,
     pub variant_property: VariantProperty,
     pub flags: u8,
+    pub name: &'static str,
 } // flags
 pub const FLAG_BURNS: u8 = 0b00000001;
 pub const FLAG_EXPLOSIVE: u8 = 0b00000010;
 pub const FLAG_IMMUTABLE: u8 = 0b00000100;
 pub const FLAG_IGNITES: u8 = 0b00001000;
+pub const FLAG_ALIVE: u8 = 0b00100000;
 
 impl VariantType {
     pub fn has_flag(&self, flag: u8) -> bool {
@@ -25,7 +26,7 @@ impl VariantType {
     }
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Copy, Clone)]
 pub enum VariantProperty {
     Solid,
     Powder,
@@ -48,16 +49,18 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         flags: 0,
         variant_property: VariantProperty::Solid,
         base_temperature: 22.,
+        name: "Empty",
     },
     // 1 Wall
     VariantType {
-        weight: 0,
+        weight: 255,
         strength: 0,
         color: WALL_COLOR,
         source_variant: Variant::Wall,
         flags: FLAG_IMMUTABLE,
         variant_property: VariantProperty::Solid,
         base_temperature: 22.,
+        name: "Wall",
     },
     // 2 Sand
     VariantType {
@@ -69,6 +72,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Powder,
         flags: 0,
         base_temperature: 22.,
+        name: "Sand",
     },
     // 3 Water
     VariantType {
@@ -79,6 +83,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Liquid,
         flags: 0,
         base_temperature: 22.,
+        name: "Water",
     },
     // 4 Fire
     VariantType {
@@ -89,6 +94,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: FLAG_BURNS,
         base_temperature: 422.,
+        name: "Fire",
     },
     // 5 Smoke
     VariantType {
@@ -99,6 +105,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: 0,
         base_temperature: 22.,
+        name: "Smoke",
     },
     // 6 Salt
     VariantType {
@@ -109,16 +116,18 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Powder,
         flags: 0,
         base_temperature: 22.,
+        name: "Salt",
     },
     // 7 SaltWater
     VariantType {
-        weight: 32,
+        weight: 38,
         strength: 0,
         color: SALT_WATER_COLOR,
         source_variant: Variant::SaltWater,
         variant_property: VariantProperty::Liquid,
         flags: 0,
         base_temperature: 22.,
+        name: "SaltWater",
     },
     // 8 OXGN
     VariantType {
@@ -129,6 +138,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: FLAG_BURNS | FLAG_IGNITES,
         base_temperature: 22.,
+        name: "OXGN",
     },
     // 9 HYGN
     VariantType {
@@ -139,6 +149,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: FLAG_BURNS | FLAG_IGNITES,
         base_temperature: 22.,
+        name: "HYGN",
     },
     // 10 HELM
     VariantType {
@@ -149,6 +160,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: 0,
         base_temperature: 22.,
+        name: "HELM",
     },
     // 11 CARB
     VariantType {
@@ -160,6 +172,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Powder,
         flags: 0,
         base_temperature: 22.,
+        name: "CARB",
     },
     // 12 NITR
     VariantType {
@@ -170,6 +183,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: 0,
         base_temperature: 22.,
+        name: "NITR",
     },
     // 13 IRON
     VariantType {
@@ -180,6 +194,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Powder,
         flags: 0,
         base_temperature: 22.,
+        name: "IRON",
     },
     // 14 CO2
     VariantType {
@@ -190,6 +205,7 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: 0,
         base_temperature: 22.,
+        name: "CO2",
     },
     // 15 WTVP
     VariantType {
@@ -200,6 +216,23 @@ pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
         variant_property: VariantProperty::Gas,
         flags: 0,
         base_temperature: 22.,
+        name: "WTVP",
+    },
+    // 16 GOL\
+    VariantType {
+        weight: 0,
+        strength: 16,
+        color: ParticleColor {
+            r: 255,
+            g: 255,
+            b: 255,
+            a: 255,
+        },
+        source_variant: Variant::GOL,
+        variant_property: VariantProperty::Solid,
+        flags: 0,
+        base_temperature: 22.,
+        name: "GOL",
     },
 ];
 
@@ -216,13 +249,100 @@ pub struct HSV {
     pub s: f32,
     pub v: f32,
 }
+
+impl HSV {
+    pub fn hsv_to_rgb(&self) -> ParticleColor {
+        let c = self.v * self.s;
+        let x = c * (1. - ((self.h / 60.) % 2. - 1.).abs());
+        let m = self.v - c;
+
+        let (r, g, b) = if self.h < 60. {
+            (c, x, 0.)
+        } else if self.h < 120. {
+            (x, c, 0.)
+        } else if self.h < 180. {
+            (0., c, x)
+        } else if self.h < 240. {
+            (0., x, c)
+        } else if self.h < 300. {
+            (x, 0., c)
+        } else {
+            (c, 0., x)
+        };
+
+        ParticleColor {
+            r: ((r + m) * 255.) as u8,
+            g: ((g + m) * 255.) as u8,
+            b: ((b + m) * 255.) as u8,
+            a: 255,
+        }
+    }
+}
+
+struct HSL {
+    pub h: f32,
+    pub s: f32,
+    pub l: f32,
+}
+
+impl HSL {
+    pub fn hsl_to_rgb(&self) -> ParticleColor {
+        let c = (1. - (2. * self.l - 1.).abs()) * self.s;
+        let x = c * (1. - ((self.h / 60.) % 2. - 1.).abs());
+        let m = self.l - c / 2.;
+
+        let (r, g, b) = if self.h < 60. {
+            (c, x, 0.)
+        } else if self.h < 120. {
+            (x, c, 0.)
+        } else if self.h < 180. {
+            (0., c, x)
+        } else if self.h < 240. {
+            (0., x, c)
+        } else if self.h < 300. {
+            (x, 0., c)
+        } else {
+            (c, 0., x)
+        };
+
+        ParticleColor {
+            r: ((r + m) * 255.) as u8,
+            g: ((g + m) * 255.) as u8,
+            b: ((b + m) * 255.) as u8,
+            a: 255,
+        }
+    }
+}
+
 impl ParticleColor {
     pub fn to_u32(&self) -> u32 {
         (self.a as u32) << 24 | (self.r as u32) << 16 | (self.g as u32) << 8 | self.b as u32
     }
 
+    // whiten based on given temperature value
+    pub fn whiten(&mut self, temperature: f32) {
+        if temperature < 20. {
+            return;
+        }
+
+        // temperature must be above 900 C for this to happen gradually from original color to white
+        // dont just set to 255, gradually increase above 900C thesh
+        let mut white_factor = (temperature - 20.) / 1000.;
+        if white_factor > 1. {
+            white_factor = 1.;
+        }
+
+        self.r = (self.r as f32 * (1. - white_factor) + 255. * white_factor) as u8;
+        self.g = (self.g as f32 * (1. - white_factor) + 255. * white_factor) as u8;
+        self.b = (self.b as f32 * (1. - white_factor) + 255. * white_factor) as u8;
+    }
+
     pub fn to_rgba8(&self) -> (u8, u8, u8, u8) {
         (self.r, self.g, self.b, self.a)
+    }
+
+    pub fn to_rgb8(&self) -> (u8, u8, u8) {
+        (self.r, self.g, self.b)
     }
 
     pub fn rgb_to_hsv(&self) -> HSV {
@@ -278,7 +398,13 @@ impl ParticleColor {
         hsv.s * sat_factor + self.brightness() * bright_factor
     }
 
-    pub fn vary_color(&self, variance: u8) {
-        /* */
+    pub fn vary_color(&mut self, amount: i32) -> ParticleColor {
+        // slightly adjust lightness and saturation
+        let mut hsv = self.rgb_to_hsv();
+        hsv.s += amount as f32 / 200.;
+        hsv.v += amount as f32 / 200.;
+        hsv.h = hsv.h;
+
+        hsv.hsv_to_rgb()
     }
 }
