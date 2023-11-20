@@ -205,7 +205,7 @@ impl World {
         // decrease temperature over time to variant base temperature
         let temperature = particle.temperature;
         let base_temperature = variant_type::variant_type(particle.variant).base_temperature;
-        let temperature_decay_rate = 0.01; // Adjust this rate based on your preference
+        let temperature_decay_rate = 0.001; // Adjust this rate based on your preference
 
         particle.temperature += (base_temperature - temperature) * temperature_decay_rate;
 
@@ -356,7 +356,7 @@ impl World {
             for y in 0..self.height {
                 let idx = self.get_idx(x as i32, y as i32);
                 let particle = self.get_particle(x as i32, y as i32);
-                let variant = particle.variant;
+                let _variant = particle.variant;
                 let color = particle::particle_to_color(particle).to_rgba8();
                 self.particles[idx].ra = color.0;
                 self.particles[idx].rb = color.1;
@@ -453,7 +453,8 @@ impl World {
             return;
         }
         let idx = self.get_idx(x, y);
-        self.particles[idx].temperature += heat;
+        self.particles[idx].temperature =
+            (self.particles[idx].temperature + heat).clamp(-200., 9275.)
     }
 
     pub fn is_modified(&self) -> bool {
@@ -475,6 +476,13 @@ impl World {
 
         let idx = self.get_idx(x, y);
         self.environment[idx].ambient_temperature = temperature;
+    }
+
+    pub fn get_particle_count(&self) -> usize {
+        self.particles
+            .iter()
+            .filter(|p| p.variant != Variant::Empty && p.variant != Variant::Wall)
+            .count()
     }
 
     pub fn set_particle(&mut self, x: i32, y: i32, variant: Variant) {

@@ -1,6 +1,6 @@
 use rand::Rng;
-use std::convert::TryInto;
-use variant_type::{VariantProperty, FLAG_IMMUTABLE};
+
+use variant_type::FLAG_IMMUTABLE;
 
 use crate::{
     particle::{self, Particle, Velocity},
@@ -15,7 +15,7 @@ pub struct API<'a> {
 }
 
 impl<'a> API<'a> {
-    pub fn set(&mut self, dx: i32, dy: i32, mut particle: particle::Particle) {
+    pub fn set(&mut self, dx: i32, dy: i32, particle: particle::Particle) {
         if dx > 2 || dx < -2 || dy > 2 || dy < -2 {
             panic!("oob set")
         }
@@ -177,7 +177,6 @@ impl<'a> API<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::world::World;
 
     use super::*;
 

@@ -1,6 +1,6 @@
 use crate::{
     api::API,
-    prelude::{variant_type, ParticleColor, FLAG_IMMUTABLE},
+    prelude::{variant_type, ParticleColor},
     variant::Variant,
     variant_type::VARIANTS,
 };
@@ -25,7 +25,7 @@ pub struct Velocity {
 }
 
 impl Particle {
-    pub fn new(variant: Variant, ra: u8, rb: u8) -> Particle {
+    pub fn new(variant: Variant, _ra: u8, rb: u8) -> Particle {
         Particle {
             variant: variant,
             ra: 100 + rand::thread_rng().gen_range(0..=1) * 50 as u8,
@@ -50,7 +50,7 @@ impl Particle {
         }
     }
 
-    pub fn update(&mut self, mut api: API) -> bool {
+    pub fn update(&mut self, api: API) -> bool {
         self.variant.update(*self, api)
     }
 }
@@ -69,6 +69,7 @@ pub fn particle_to_color(particle: Particle) -> ParticleColor {
         Variant::Water => {
             // vary color based on ra
             let mut color = VARIANTS[3].color;
+            color.whiten(particle.temperature);
 
             color.vary_color(particle.ra as i32)
         }

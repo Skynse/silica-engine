@@ -1,6 +1,5 @@
-use crate::{particle::Particle, variant::Variant};
+use crate::variant::Variant;
 
-use rand::Rng;
 pub const VARIANT_COUNT: usize = 17;
 use crate::colors::*;
 
@@ -322,12 +321,20 @@ impl ParticleColor {
 
     // whiten based on given temperature value
     pub fn whiten(&mut self, temperature: f32) {
-        let mut hsv = self.rgb_to_hsv();
-        hsv.s += temperature / 100.;
-        hsv.v += temperature / 100.;
-        hsv.h = hsv.h;
+        if temperature < 20. {
+            return;
+        }
 
-        *self = hsv.hsv_to_rgb();
+        // temperature must be above 900 C for this to happen gradually from original color to white
+        // dont just set to 255, gradually increase above 900C thesh
+        let mut white_factor = (temperature - 20.) / 1000.;
+        if white_factor > 1. {
+            white_factor = 1.;
+        }
+
+        self.r = (self.r as f32 * (1. - white_factor) + 255. * white_factor) as u8;
+        self.g = (self.g as f32 * (1. - white_factor) + 255. * white_factor) as u8;
+        self.b = (self.b as f32 * (1. - white_factor) + 255. * white_factor) as u8;
     }
 
     pub fn to_rgba8(&self) -> (u8, u8, u8, u8) {

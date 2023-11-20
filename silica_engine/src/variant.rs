@@ -5,10 +5,7 @@ pub use crate::{
     particle::Particle,
     variant_type::{variant_type, VariantProperty, VARIANTS},
 };
-use crate::{
-    particle::Velocity,
-    prelude::{VariantType, GRAVITY},
-};
+use crate::{particle::Velocity, prelude::VariantType};
 
 pub static EMPTY_CELL: Particle = Particle {
     variant: Variant::Empty,
@@ -112,7 +109,7 @@ impl Variant {
     }
 }
 
-fn update_empty(particle: Particle, mut api: API) -> bool {
+fn update_empty(_particle: Particle, mut api: API) -> bool {
     let mut alive_nbrs = 0;
     if api.get(0, 1).variant == Variant::GOL {
         alive_nbrs += 1;
@@ -153,7 +150,7 @@ fn update_empty(particle: Particle, mut api: API) -> bool {
     false
 }
 
-fn update_sand(mut particle: Particle, mut api: API) -> bool {
+fn update_sand(_particle: Particle, _api: API) -> bool {
     true
 }
 
@@ -172,7 +169,7 @@ fn update_salt(particle: Particle, mut api: API) -> bool {
     false
 }
 
-fn update_salt_water(particle: Particle, mut api: API) -> bool {
+fn update_salt_water(_particle: Particle, _api: API) -> bool {
     // swap down with water if water above
     false
 }
@@ -195,8 +192,8 @@ fn update_fire(mut particle: Particle, mut api: API) -> bool {
 }
 
 fn update_water(particle: Particle, mut api: API) -> bool {
-    let dx = api.rand_dir();
-    let mut nbr = api.get(0, 1);
+    let _dx = api.rand_dir();
+    let _nbr = api.get(0, 1);
 
     if particle.temperature > 100. {
         api.set(
@@ -237,7 +234,7 @@ fn update_iron(mut particle: Particle, mut api: API) -> bool {
     false
 }
 
-fn update_oxygen(mut particle: Particle, mut api: API) -> bool {
+fn update_oxygen(particle: Particle, mut api: API) -> bool {
     /*
     if api.once_in(10) && particle.dissolve_to(Variant::Empty) {
         api.set(0, 0, EMPTY_CELL);
@@ -300,7 +297,7 @@ fn update_wtvp(particle: Particle, mut api: API) -> bool {
     false
 }
 
-fn update_gol(mut particle: Particle, mut api: API) -> bool {
+fn update_gol(particle: Particle, mut api: API) -> bool {
     let mut alive_nbrs: u32 = 0;
 
     if api.get(0, 1).variant == Variant::GOL {
