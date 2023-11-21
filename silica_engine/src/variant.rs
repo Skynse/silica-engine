@@ -1,21 +1,17 @@
 use std::fmt::Display;
 
-pub use crate::{
-    api::API,
-    particle::Particle,
-    variant_type::{variant_type, VariantProperty, VARIANTS},
-};
-use crate::{particle::Velocity, prelude::VariantType};
+pub use crate::{api::API, particle::Particle, variant_type::VariantProperty};
+use crate::{particle::Velocity, variant_type::*};
 
 pub static EMPTY_CELL: Particle = Particle {
-    variant: Variant::Empty,
-    ra: 0,
-    rb: 0,
+    variant_type: EMPTY,
     clock: 0,
     strength: 0,
     modified: false,
     velocity: Velocity { x: 0., y: 0. },
     temperature: 0.,
+    ra: 0,
+    rb: 0,
 };
 
 #[repr(u8)]
@@ -24,6 +20,7 @@ pub enum Variant {
     Empty = 0,
     Wall = 1,
     Sand = 2,
+    Glass = 17,
     Water = 3,
     Fire = 4,
     Smoke = 5,
@@ -76,81 +73,93 @@ impl Variant {
             Variant::WTVP => update_wtvp(particle, api),
             Variant::GOL => update_gol(particle, api),
             Variant::Empty => update_empty(particle, api),
+            Variant::Glass => update_glass(particle, api),
 
             _ => false,
         }
     }
 
-    pub fn get_type(&self) -> VariantType {
-        let variant_type = variant_type(*self);
-        *variant_type
-    }
-
     pub fn get_name(&self) -> &'static str {
         match self {
-            Variant::Empty => "Empty",
-            Variant::Wall => "Wall",
-            Variant::Sand => "Sand",
-            Variant::Water => "Water",
-            Variant::Fire => "Fire",
-            Variant::Smoke => "Smoke",
-            Variant::Salt => "Salt",
-            Variant::SaltWater => "SaltWater",
-            Variant::CARB => "Carbon",
-            Variant::IRON => "Iron",
-            Variant::OXGN => "Oxygen",
-            Variant::HYGN => "Hydrogen",
-            Variant::HELM => "Helium",
-            Variant::NITR => "Nitrogen",
+            Variant::Empty => "EMPT",
+            Variant::Wall => "WALL",
+            Variant::Sand => "SAND",
+            Variant::Water => "WATR",
+            Variant::Fire => "FIRE",
+            Variant::Smoke => "SMOK",
+            Variant::Salt => "SALT",
+            Variant::SaltWater => "SWTR",
+            Variant::CARB => "CRBN",
+            Variant::IRON => "IRON",
+            Variant::OXGN => "OXYG",
+            Variant::HYGN => "HYDR",
+            Variant::HELM => "HELM",
+            Variant::NITR => "NITR",
             Variant::CO2 => "CO2",
-            Variant::WTVP => "Steam",
-            Variant::GOL => "Game of Life",
+            Variant::WTVP => "STM",
+            Variant::GOL => "GOL",
+            Variant::Glass => "GLAS",
         }
     }
 }
 
 fn update_empty(_particle: Particle, mut api: API) -> bool {
     let mut alive_nbrs = 0;
-    if api.get(0, 1).variant == Variant::GOL {
+    if api.get(0, 1).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(0, -1).variant == Variant::GOL {
+    if api.get(0, -1).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(1, 0).variant == Variant::GOL {
+    if api.get(1, 0).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(-1, 0).variant == Variant::GOL {
+    if api.get(-1, 0).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(1, 1).variant == Variant::GOL {
+    if api.get(1, 1).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(-1, -1).variant == Variant::GOL {
+    if api.get(-1, -1).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(1, -1).variant == Variant::GOL {
+    if api.get(1, -1).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(-1, 1).variant == Variant::GOL {
+    if api.get(-1, 1).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
     if alive_nbrs == 3 {
-        api.set(0, 0, Particle::new(Variant::GOL, 0, 0));
+        api.set(0, 0, Particle::new(GOL, 0, 0));
         return true;
     }
     false
 }
 
-fn update_sand(_particle: Particle, _api: API) -> bool {
+fn update_sand(particle: Particle, mut api: API) -> bool {
+    if particle.temperature > 1700. {
+        api.set(
+            0,
+            0,
+            Particle {
+                variant_type: GLASS,
+                ..particle
+            },
+        );
+        return true;
+    }
+    false
+}
+
+fn update_glass(_particle: Particle, _api: API) -> bool {
     true
 }
 
@@ -158,29 +167,68 @@ fn update_salt(particle: Particle, mut api: API) -> bool {
     let mut nbrs = api.get_nbrs();
 
     for nbr in nbrs.iter_mut() {
-        if nbr.variant == Variant::Water {
-            if nbr.dissolve_to(Variant::SaltWater) {
+        if nbr.get_variant() == Variant::Water {
+            if nbr.dissolve_to(SALT_WATER) {
                 api.set(0, 0, *nbr);
                 api.set(0, 1, particle);
             }
             return true;
         }
     }
+
     false
 }
 
-fn update_salt_water(_particle: Particle, _api: API) -> bool {
-    // swap down with water if water above
+fn update_salt_water(_particle: Particle, mut _api: API) -> bool {
+    // swap down with water if water above\
+    // if temp > 102, then turn into one part steam, one part salt
+    let top = _api.get(0, -1);
+    let bottom = _api.get(0, 1);
+
+    if _particle.temperature > 102. {
+        // turn into one part steam, one part salt
+        // check to see if there's room for steam AND salt, then split
+        // otherwise, just turn into salt
+        if top.get_variant() == Variant::Empty && bottom.get_variant() == Variant::Empty {
+            _api.set(
+                0,
+                -1,
+                Particle {
+                    variant_type: WTVP,
+                    .._particle
+                },
+            );
+            _api.set(
+                0,
+                1,
+                Particle {
+                    variant_type: SALT,
+                    .._particle
+                },
+            );
+        } else {
+            _api.set(
+                0,
+                0,
+                Particle {
+                    variant_type: SALT,
+                    .._particle
+                },
+            );
+        }
+
+        return true;
+    }
     false
 }
 
 fn update_fire(mut particle: Particle, mut api: API) -> bool {
-    if api.once_per(50) && particle.dissolve_to(Variant::Empty) {
+    if api.once_per(50) && particle.dissolve_to(EMPTY) {
         api.set(
             0,
             0,
             Particle {
-                variant: Variant::Smoke,
+                variant_type: SMOKE,
                 ..particle
             },
         );
@@ -200,7 +248,7 @@ fn update_water(particle: Particle, mut api: API) -> bool {
             0,
             0,
             Particle {
-                variant: Variant::WTVP,
+                variant_type: WTVP,
                 ..particle
             },
         );
@@ -211,15 +259,16 @@ fn update_water(particle: Particle, mut api: API) -> bool {
 }
 
 fn update_smoke(mut particle: Particle, mut api: API) -> bool {
-    if api.once_in(10) && particle.dissolve_to(Variant::Empty) {
+    if api.once_in(10) && particle.dissolve_to(EMPTY) {
         api.set(0, 0, EMPTY_CELL);
-        return false;
+        return true;
     }
+
     false
 }
 
 fn update_carbon(mut particle: Particle, mut api: API) -> bool {
-    if api.once_in(10) && particle.dissolve_to(Variant::Empty) {
+    if api.once_in(10) && particle.dissolve_to(EMPTY) {
         api.set(0, 0, EMPTY_CELL);
         return false;
     }
@@ -227,7 +276,7 @@ fn update_carbon(mut particle: Particle, mut api: API) -> bool {
 }
 
 fn update_iron(mut particle: Particle, mut api: API) -> bool {
-    if api.once_in(10) && particle.dissolve_to(Variant::Empty) {
+    if api.once_in(10) && particle.dissolve_to(EMPTY) {
         api.set(0, 0, EMPTY_CELL);
         return false;
     }
@@ -236,7 +285,7 @@ fn update_iron(mut particle: Particle, mut api: API) -> bool {
 
 fn update_oxygen(particle: Particle, mut api: API) -> bool {
     /*
-    if api.once_in(10) && particle.dissolve_to(Variant::Empty) {
+    if api.once_in(10) && particle.dissolve_to(EMPTY) {
         api.set(0, 0, EMPTY_CELL);
         return false;
     }
@@ -258,8 +307,8 @@ fn update_oxygen(particle: Particle, mut api: API) -> bool {
 
     let mut nbr = nbrs[0];
 
-    if nbr.variant == Variant::HYGN {
-        if nbr.dissolve_to(variant_type(particle.variant).source_variant) {
+    if nbr.get_variant() == Variant::HYGN && nbr.dissolve_to(WATER) {
+        {
             api.set(0, 0, nbr);
             api.set(0, 1, particle);
         }
@@ -271,7 +320,7 @@ fn update_oxygen(particle: Particle, mut api: API) -> bool {
             0,
             0,
             Particle {
-                variant: Variant::Fire,
+                variant_type: FIRE,
                 ..particle
             },
         );
@@ -287,7 +336,7 @@ fn update_wtvp(particle: Particle, mut api: API) -> bool {
             0,
             0,
             Particle {
-                variant: Variant::Water,
+                variant_type: WATER,
                 ..particle
             },
         );
@@ -300,35 +349,35 @@ fn update_wtvp(particle: Particle, mut api: API) -> bool {
 fn update_gol(particle: Particle, mut api: API) -> bool {
     let mut alive_nbrs: u32 = 0;
 
-    if api.get(0, 1).variant == Variant::GOL {
+    if api.get(0, 1).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(0, -1).variant == Variant::GOL {
+    if api.get(0, -1).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(1, 0).variant == Variant::GOL {
+    if api.get(1, 0).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(-1, 0).variant == Variant::GOL {
+    if api.get(-1, 0).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(1, 1).variant == Variant::GOL {
+    if api.get(1, 1).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(-1, -1).variant == Variant::GOL {
+    if api.get(-1, -1).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(1, -1).variant == Variant::GOL {
+    if api.get(1, -1).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
-    if api.get(-1, 1).variant == Variant::GOL {
+    if api.get(-1, 1).get_variant() == Variant::GOL {
         alive_nbrs += 1;
     }
 
@@ -336,14 +385,22 @@ fn update_gol(particle: Particle, mut api: API) -> bool {
         api.set(0, 0, EMPTY_CELL);
     }
 
-    if particle.temperature > 24.0 || particle.temperature < 20.0 {
-        api.set(0, 0, EMPTY_CELL);
+    // get self temperature and die
+    if particle.temperature > 100. {
+        api.set(
+            0,
+            0,
+            Particle {
+                variant_type: SAND,
+                ..particle
+            },
+        );
     }
     true
 }
 
 fn update_hydrogen(mut particle: Particle, mut api: API) -> bool {
-    if api.once_in(10) && particle.dissolve_to(Variant::Empty) {
+    if api.once_in(10) && particle.dissolve_to(EMPTY) {
         api.set(0, 0, EMPTY_CELL);
         return false;
     }
@@ -351,7 +408,7 @@ fn update_hydrogen(mut particle: Particle, mut api: API) -> bool {
 }
 
 fn update_helium(mut particle: Particle, mut api: API) -> bool {
-    if api.once_in(10) && particle.dissolve_to(Variant::Empty) {
+    if api.once_in(10) && particle.dissolve_to(EMPTY) {
         api.set(0, 0, EMPTY_CELL);
         return false;
     }
@@ -359,7 +416,7 @@ fn update_helium(mut particle: Particle, mut api: API) -> bool {
 }
 
 fn update_nitrogen(mut particle: Particle, mut api: API) -> bool {
-    if api.once_in(10) && particle.dissolve_to(Variant::Empty) {
+    if api.once_in(10) && particle.dissolve_to(EMPTY) {
         api.set(0, 0, EMPTY_CELL);
         return false;
     }
@@ -367,19 +424,13 @@ fn update_nitrogen(mut particle: Particle, mut api: API) -> bool {
 }
 
 fn update_co2(mut particle: Particle, mut api: API) -> bool {
-    if api.once_in(10) && particle.dissolve_to(Variant::Empty) {
+    if api.once_in(10) && particle.dissolve_to(EMPTY) {
         api.set(0, 0, EMPTY_CELL);
         return false;
     }
     false
 }
 
-pub fn particle_to_color(variant: Variant) -> (u8, u8, u8, u8) {
-    let res = match variant {
-        Variant::Empty => VARIANTS[0].color.to_rgba8(),
-        Variant::Wall => VARIANTS[1].color.to_rgba8(),
-        _ => variant_type(variant).color.to_rgba8(),
-    };
-
-    res
+pub fn particle_to_color(variant_type: VariantType) -> (u8, u8, u8, u8) {
+    variant_type.color.to_rgba8()
 }

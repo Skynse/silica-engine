@@ -4,7 +4,6 @@ use variant_type::FLAG_IMMUTABLE;
 
 use crate::{
     particle::{self, Particle, Velocity},
-    variant::Variant,
     variant_type, world,
 };
 
@@ -16,7 +15,7 @@ pub struct API<'a> {
 
 impl<'a> API<'a> {
     pub fn set(&mut self, dx: i32, dy: i32, particle: particle::Particle) {
-        if dx > 2 || dx < -2 || dy > 2 || dy < -2 {
+        if !(-2..=2).contains(&dx) || !(-2..=2).contains(&dy) {
             panic!("oob set")
         }
 
@@ -61,10 +60,7 @@ impl<'a> API<'a> {
         let mut c1 = self.world.particles[idx0];
         let mut c2 = self.world.particles[idx1];
 
-        if variant_type::variant_type(c1.variant).flags & FLAG_IMMUTABLE
-            | variant_type::variant_type(c2.variant).flags & FLAG_IMMUTABLE
-            == 0
-        {
+        if c1.variant_type.flags & FLAG_IMMUTABLE | c2.variant_type.flags & FLAG_IMMUTABLE == 0 {
             return;
         }
 
@@ -80,10 +76,7 @@ impl<'a> API<'a> {
         let mut c1 = self.world.particles[idx1];
         let mut c2 = self.world.particles[idx2];
 
-        if c1.variant.get_type().flags & FLAG_IMMUTABLE
-            | c2.variant.get_type().flags & FLAG_IMMUTABLE
-            == 0
-        {
+        if c1.variant_type.flags & FLAG_IMMUTABLE | c2.variant_type.flags & FLAG_IMMUTABLE == 0 {
             return;
         }
 
@@ -153,7 +146,7 @@ impl<'a> API<'a> {
     }
 
     pub fn get(&mut self, dx: i32, dy: i32) -> Particle {
-        if dx > 2 || dx < -2 || dy > 2 || dy < -2 {
+        if !(-2..=2).contains(&dx) || !(-2..=2).contains(&dy) {
             panic!("oob set");
         }
         let nx = self.x + dx;
@@ -161,7 +154,7 @@ impl<'a> API<'a> {
 
         if nx < 0 || nx > self.world.width - 1 || ny < 0 || ny > self.world.height - 1 {
             return Particle {
-                variant: Variant::Wall,
+                variant_type: variant_type::WALL,
                 ra: 0,
                 rb: 0,
                 clock: self.world.generation,
@@ -178,6 +171,10 @@ impl<'a> API<'a> {
 #[cfg(test)]
 mod tests {
 
+    use variant_type::SAND;
+
+    use crate::prelude::Variant;
+
     use super::*;
 
     #[test]
@@ -188,7 +185,7 @@ mod tests {
             x: 0,
             y: 0,
         };
-        api.set(0, 0, Particle::new(Variant::Sand, 0, 0));
+        api.set(0, 0, Particle::new(variant_type::SAND, 0, 0));
         assert_eq!(api.get(0, 0).get_variant(), Variant::Sand);
     }
 
@@ -200,7 +197,7 @@ mod tests {
             x: 0,
             y: 0,
         };
-        api.set(0, 0, Particle::new(Variant::Sand, 0, 0));
+        api.set(0, 0, Particle::new(SAND, 0, 0));
         assert_eq!(api.get(0, 0).get_variant(), Variant::Sand);
     }
 
@@ -212,7 +209,7 @@ mod tests {
             x: 0,
             y: 0,
         };
-        api.set(0, 0, Particle::new(Variant::Sand, 0, 0));
+        api.set(0, 0, Particle::new(SAND, 0, 0));
         api.reset();
         assert_eq!(api.get(0, 0).get_variant(), Variant::Empty);
         assert_eq!(api.get(1, 1).get_variant(), Variant::Empty);

@@ -1,14 +1,10 @@
-use crate::{
-    api::API,
-    prelude::{variant_type, ParticleColor},
-    variant::Variant,
-    variant_type::VARIANTS,
-};
+use crate::{api::API, prelude::ParticleColor, variant::Variant, variant_type};
 use rand::Rng;
+use variant_type::VariantType;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Particle {
-    pub variant: Variant,
+    pub variant_type: VariantType,
     pub ra: u8,
     pub rb: u8,
     pub clock: u8,
@@ -23,12 +19,25 @@ pub struct Velocity {
     pub x: f32,
     pub y: f32,
 }
-
+impl Default for Particle {
+    fn default() -> Self {
+        Self {
+            variant_type: variant_type::EMPTY,
+            ra: 0,
+            rb: 0,
+            clock: 0,
+            strength: 0,
+            modified: false,
+            velocity: Velocity { x: 0., y: 0. },
+            temperature: 0.,
+        }
+    }
+}
 impl Particle {
-    pub fn new(variant: Variant, _ra: u8, rb: u8) -> Particle {
+    pub fn new(variant_type: VariantType, _ra: u8, rb: u8) -> Particle {
         Particle {
-            variant: variant,
-            ra: 100 + rand::thread_rng().gen_range(0..=1) * 50 as u8,
+            variant_type: variant_type,
+            ra: 100 + rand::thread_rng().gen_range(0..=1) * 50,
             rb,
             clock: 0,
             strength: 0,
@@ -38,8 +47,15 @@ impl Particle {
         }
     }
 
+    // save method that only takes the color of the particle
+
+    pub fn save(&self) -> (u8, u8, u8) {
+        let color = particle_to_color(*self);
+        (color.r, color.g, color.b)
+    }
+
     pub fn get_variant(&self) -> Variant {
-        self.variant
+        self.variant_type.source_variant
     }
 
     pub fn add_heat(&mut self, heat: f32) {
@@ -51,41 +67,65 @@ impl Particle {
     }
 
     pub fn update(&mut self, api: API) -> bool {
-        self.variant.update(*self, api)
+        self.variant_type.source_variant.update(*self, api)
     }
 }
 
 pub fn particle_to_color(particle: Particle) -> ParticleColor {
-    let res = match particle.variant {
-        Variant::Empty => VARIANTS[0].color,
-        Variant::Wall => VARIANTS[1].color,
+    let res = match particle.get_variant() {
+        Variant::Empty => variant_type::EMPTY.color,
+        Variant::Wall => variant_type::WALL.color,
         Variant::Sand => {
             // vary color based on ra
-            let mut color = VARIANTS[2].color;
+            let mut color = variant_type::SAND.color;
             color.whiten(particle.temperature);
 
             color.vary_color(particle.ra as i32)
         }
         Variant::Water => {
             // vary color based on ra
-            let mut color = VARIANTS[3].color;
+            let mut color = variant_type::WATER.color;
             color.whiten(particle.temperature);
 
             color.vary_color(particle.ra as i32)
         }
-        Variant::Fire => VARIANTS[4].color,
-        Variant::Smoke => VARIANTS[5].color,
-        Variant::Salt => VARIANTS[6].color,
-        Variant::SaltWater => VARIANTS[7].color,
-        Variant::OXGN => VARIANTS[8].color,
-        Variant::HYGN => VARIANTS[9].color,
-        Variant::HELM => VARIANTS[10].color,
-        Variant::CARB => VARIANTS[11].color,
-        Variant::NITR => VARIANTS[12].color,
-        Variant::IRON => VARIANTS[13].color,
-        Variant::CO2 => VARIANTS[14].color,
-        Variant::WTVP => VARIANTS[15].color,
-        Variant::GOL => VARIANTS[16].color,
+        Variant::Fire => {
+            // vary color based on ra
+            let mut color = variant_type::FIRE.color;
+            //  color.fire_color();
+
+            color.vary_color(particle.ra as i32)
+        }
+        Variant::Smoke => {
+            // vary color based on ra
+            let mut color = variant_type::SMOKE.color;
+            color.darken_by_strength(particle.strength);
+            color
+        }
+        Variant::Salt => variant_type::SALT.color,
+        Variant::SaltWater => variant_type::SALT_WATER.color,
+        Variant::OXGN => variant_type::OXGN.color,
+        Variant::HYGN => variant_type::HYGN.color,
+        Variant::HELM => variant_type::HELM.color,
+        Variant::CARB => variant_type::CARB.color,
+        Variant::NITR => variant_type::NITR.color,
+        Variant::IRON => {
+            // vary color based on ra
+            let mut color = variant_type::IRON.color;
+            color.whiten(particle.temperature);
+
+            color.vary_color(particle.ra as i32)
+        }
+        Variant::CO2 => variant_type::CO2.color,
+        Variant::WTVP => variant_type::WTVP.color,
+        Variant::GOL => variant_type::GOL.color,
+        Variant::Glass => {
+            // vary color based on ra
+            let mut color = variant_type::GLASS.color;
+            color.whiten(particle.temperature);
+
+            color.vary_color(particle.ra as i32)
+        }
     };
 
     res
@@ -107,13 +147,13 @@ pub fn interpolate(
 }
 
 impl Particle {
-    pub fn dissolve_to(&mut self, variant: Variant) -> bool {
+    pub fn dissolve_to(&mut self, variant_type: VariantType) -> bool {
         if self.strength > 0 {
             self.strength -= 1;
             return false;
         } else {
-            self.variant = variant;
-            self.strength = variant_type(variant).strength;
+            self.variant_type = variant_type;
+            self.strength = variant_type.strength; // we need to grab the variants base strength later
             return true;
         }
     }

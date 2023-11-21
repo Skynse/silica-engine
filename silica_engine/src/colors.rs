@@ -44,9 +44,10 @@ pub const WATER_COLOR: ParticleColor = ParticleColor {
     a: 255,
 };
 pub const FIRE_COLOR: ParticleColor = ParticleColor {
-    r: 255,
-    g: 0,
-    b: 0,
+    //rgb(198, 66, 15)
+    r: 198,
+    g: 66,
+    b: 15,
     a: 255,
 };
 pub const SMOKE_COLOR: ParticleColor = ParticleColor {
@@ -80,9 +81,9 @@ pub const IRON_COLOR: ParticleColor = ParticleColor {
     a: 255,
 };
 pub const OXYGEN_COLOR: ParticleColor = ParticleColor {
-    r: 255,
-    g: 0,
-    b: 0,
+    r: 127,
+    g: 159,
+    b: 254,
     a: 255,
 };
 pub const HYDROGEN_COLOR: ParticleColor = ParticleColor {
@@ -113,6 +114,13 @@ pub const STEAM_COLOR: ParticleColor = ParticleColor {
     r: 255,
     g: 255,
     b: 255,
+    a: 255,
+};
+
+pub const GLASS_COLOR: ParticleColor = ParticleColor {
+    r: 40,
+    g: 40,
+    b: 40,
     a: 255,
 };
 

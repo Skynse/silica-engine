@@ -1,9 +1,9 @@
 use crate::variant::Variant;
 
-pub const VARIANT_COUNT: usize = 17;
-use crate::colors::*;
+pub const VARIANT_COUNT: usize = 18;
+use crate::{colors::*};
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Debug)]
 pub struct VariantType {
     pub weight: u8,
     pub color: ParticleColor,
@@ -14,6 +14,7 @@ pub struct VariantType {
     pub flags: u8,
     pub name: &'static str,
 } // flags
+
 pub const FLAG_BURNS: u8 = 0b00000001;
 pub const FLAG_EXPLOSIVE: u8 = 0b00000010;
 pub const FLAG_IMMUTABLE: u8 = 0b00000100;
@@ -24,9 +25,32 @@ impl VariantType {
     pub fn has_flag(&self, flag: u8) -> bool {
         self.flags & flag != 0
     }
+
+    pub fn from_variant(variant: Variant) -> &'static VariantType {
+        match variant {
+            Variant::Empty => &EMPTY,
+            Variant::Wall => &WALL,
+            Variant::Sand => &SAND,
+            Variant::Water => &WATER,
+            Variant::Fire => &FIRE,
+            Variant::Smoke => &SMOKE,
+            Variant::Salt => &SALT,
+            Variant::SaltWater => &SALT_WATER,
+            Variant::OXGN => &OXGN,
+            Variant::HYGN => &HYGN,
+            Variant::HELM => &HELM,
+            Variant::CARB => &CARB,
+            Variant::NITR => &NITR,
+            Variant::IRON => &IRON,
+            Variant::CO2 => &CO2,
+            Variant::WTVP => &WTVP,
+            Variant::GOL => &GOL,
+            Variant::Glass => &GLASS,
+        }
+    }
 }
 
-#[derive(PartialEq, Eq, Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug)]
 pub enum VariantProperty {
     Solid,
     Powder,
@@ -34,207 +58,231 @@ pub enum VariantProperty {
     Gas,
 }
 
-#[inline(always)]
-pub fn variant_type(variant: Variant) -> &'static VariantType {
-    &VARIANTS[variant as usize]
+pub fn get_color(variant: Variant) {
+    match variant {
+        Variant::Empty => EMPTY_COLOR,
+        Variant::Wall => WALL_COLOR,
+        Variant::Sand => SAND_COLOR,
+        Variant::Water => WATER_COLOR,
+        Variant::Fire => FIRE_COLOR,
+        Variant::Smoke => SMOKE_COLOR,
+        Variant::Salt => SALT_COLOR,
+        Variant::SaltWater => SALT_WATER_COLOR,
+        Variant::OXGN => OXYGEN_COLOR,
+        Variant::HYGN => HYDROGEN_COLOR,
+        Variant::HELM => HELIUM_COLOR,
+        Variant::CARB => CARBON_COLOR,
+        Variant::NITR => NITROGEN_COLOR,
+        Variant::IRON => IRON_COLOR,
+        Variant::CO2 => CO2_COLOR,
+        Variant::WTVP => STEAM_COLOR,
+        Variant::Glass => GLASS_COLOR,
+        Variant::GOL => ParticleColor::from_rgba((0, 0, 0, 0)),
+    };
 }
 
-pub static VARIANTS: [VariantType; VARIANT_COUNT] = [
-    // 0 Empty
-    VariantType {
-        weight: 0,
-        strength: 0,
-        color: EMPTY_COLOR,
-        source_variant: Variant::Empty,
-        flags: 0,
-        variant_property: VariantProperty::Solid,
-        base_temperature: 22.,
-        name: "Empty",
+pub const EMPTY: VariantType = VariantType {
+    weight: 0,
+    strength: 0,
+    color: EMPTY_COLOR,
+    source_variant: Variant::Empty,
+    flags: 0,
+    variant_property: VariantProperty::Solid,
+    base_temperature: 22.,
+    name: "Empty",
+};
+
+pub const WALL: VariantType = VariantType {
+    weight: 255,
+    strength: 0,
+    color: WALL_COLOR,
+    source_variant: Variant::Wall,
+    flags: FLAG_IMMUTABLE,
+    variant_property: VariantProperty::Solid,
+    base_temperature: 22.,
+    name: "Wall",
+};
+
+pub const SAND: VariantType = VariantType {
+    weight: 64,
+    strength: 0,
+    color: SAND_COLOR,
+    source_variant: Variant::Sand,
+    variant_property: VariantProperty::Powder,
+    flags: 0,
+    base_temperature: 22.,
+    name: "Sand",
+};
+
+pub const WATER: VariantType = VariantType {
+    weight: 32,
+    strength: 0,
+    color: WATER_COLOR,
+    source_variant: Variant::Water,
+    variant_property: VariantProperty::Liquid,
+    flags: 0,
+    base_temperature: 22.,
+    name: "Water",
+};
+
+pub const FIRE: VariantType = VariantType {
+    weight: 64,
+    strength: 16,
+    color: FIRE_COLOR,
+    source_variant: Variant::Fire,
+    variant_property: VariantProperty::Gas,
+    flags: FLAG_BURNS,
+    base_temperature: 422.,
+    name: "Fire",
+};
+
+pub const SMOKE: VariantType = VariantType {
+    weight: 1,
+    strength: 64,
+    color: SMOKE_COLOR,
+    source_variant: Variant::Smoke,
+    variant_property: VariantProperty::Gas,
+    flags: 0,
+    base_temperature: 22.,
+    name: "Smoke",
+};
+
+pub const SALT: VariantType = VariantType {
+    weight: 1,
+    strength: 0,
+    color: SALT_COLOR,
+    source_variant: Variant::Salt,
+    variant_property: VariantProperty::Powder,
+    flags: 0,
+    base_temperature: 22.,
+    name: "Salt",
+};
+
+pub const SALT_WATER: VariantType = VariantType {
+    weight: 38,
+    strength: 0,
+    color: SALT_WATER_COLOR,
+    source_variant: Variant::SaltWater,
+    variant_property: VariantProperty::Liquid,
+    flags: 0,
+    base_temperature: 22.,
+    name: "SaltWater",
+};
+
+pub const OXGN: VariantType = VariantType {
+    weight: 0,
+    strength: 0,
+    color: OXYGEN_COLOR,
+    source_variant: Variant::OXGN,
+    variant_property: VariantProperty::Gas,
+    flags: FLAG_BURNS | FLAG_IGNITES,
+    base_temperature: 22.,
+    name: "OXGN",
+};
+
+pub const HYGN: VariantType = VariantType {
+    weight: 0,
+    strength: 0,
+    color: HYDROGEN_COLOR,
+    source_variant: Variant::HYGN,
+    variant_property: VariantProperty::Gas,
+    flags: FLAG_BURNS | FLAG_IGNITES,
+    base_temperature: 22.,
+    name: "HYGN",
+};
+
+pub const HELM: VariantType = VariantType {
+    weight: 0,
+    strength: 0,
+    color: HELIUM_COLOR,
+    source_variant: Variant::HELM,
+    variant_property: VariantProperty::Gas,
+    flags: 0,
+    base_temperature: 22.,
+    name: "HELM",
+};
+
+pub const CARB: VariantType = VariantType {
+    weight: 0,
+    strength: 0,
+    color: CARBON_COLOR,
+    source_variant: Variant::CARB,
+    variant_property: VariantProperty::Powder,
+    flags: 0,
+    base_temperature: 22.,
+    name: "CARB",
+};
+
+pub const NITR: VariantType = VariantType {
+    weight: 0,
+    strength: 0,
+    color: NITROGEN_COLOR,
+    source_variant: Variant::NITR,
+    variant_property: VariantProperty::Gas,
+    flags: 0,
+    base_temperature: 22.,
+    name: "NITR",
+};
+
+pub const IRON: VariantType = VariantType {
+    weight: 0,
+    strength: 0,
+    color: IRON_COLOR,
+    source_variant: Variant::IRON,
+    variant_property: VariantProperty::Solid,
+    flags: 0,
+    base_temperature: 22.,
+    name: "IRON",
+};
+
+pub const CO2: VariantType = VariantType {
+    weight: 0,
+    strength: 0,
+    color: CO2_COLOR,
+    source_variant: Variant::CO2,
+    variant_property: VariantProperty::Gas,
+    flags: 0,
+    base_temperature: 22.,
+    name: "CO2",
+};
+
+pub const WTVP: VariantType = VariantType {
+    weight: 0,
+    strength: 0,
+    color: STEAM_COLOR,
+    source_variant: Variant::WTVP,
+    variant_property: VariantProperty::Gas,
+    flags: 0,
+    base_temperature: 22.,
+    name: "WTVP",
+};
+
+pub const GOL: VariantType = VariantType {
+    weight: 0,
+    strength: 16,
+    color: ParticleColor {
+        r: 255,
+        g: 255,
+        b: 255,
+        a: 255,
     },
-    // 1 Wall
-    VariantType {
-        weight: 255,
-        strength: 0,
-        color: WALL_COLOR,
-        source_variant: Variant::Wall,
-        flags: FLAG_IMMUTABLE,
-        variant_property: VariantProperty::Solid,
-        base_temperature: 22.,
-        name: "Wall",
-    },
-    // 2 Sand
-    VariantType {
-        weight: 1,
-        strength: 0,
-        // peach brown
-        color: SAND_COLOR,
-        source_variant: Variant::Sand,
-        variant_property: VariantProperty::Powder,
-        flags: 0,
-        base_temperature: 22.,
-        name: "Sand",
-    },
-    // 3 Water
-    VariantType {
-        weight: 32,
-        strength: 0,
-        color: WATER_COLOR,
-        source_variant: Variant::Water,
-        variant_property: VariantProperty::Liquid,
-        flags: 0,
-        base_temperature: 22.,
-        name: "Water",
-    },
-    // 4 Fire
-    VariantType {
-        weight: 64,
-        strength: 16,
-        color: FIRE_COLOR,
-        source_variant: Variant::Fire,
-        variant_property: VariantProperty::Gas,
-        flags: FLAG_BURNS,
-        base_temperature: 422.,
-        name: "Fire",
-    },
-    // 5 Smoke
-    VariantType {
-        weight: 1,
-        strength: 32,
-        color: SMOKE_COLOR,
-        source_variant: Variant::Smoke,
-        variant_property: VariantProperty::Gas,
-        flags: 0,
-        base_temperature: 22.,
-        name: "Smoke",
-    },
-    // 6 Salt
-    VariantType {
-        weight: 1,
-        strength: 0,
-        color: SALT_COLOR,
-        source_variant: Variant::Salt,
-        variant_property: VariantProperty::Powder,
-        flags: 0,
-        base_temperature: 22.,
-        name: "Salt",
-    },
-    // 7 SaltWater
-    VariantType {
-        weight: 38,
-        strength: 0,
-        color: SALT_WATER_COLOR,
-        source_variant: Variant::SaltWater,
-        variant_property: VariantProperty::Liquid,
-        flags: 0,
-        base_temperature: 22.,
-        name: "SaltWater",
-    },
-    // 8 OXGN
-    VariantType {
-        weight: 0,
-        strength: 0,
-        color: OXYGEN_COLOR,
-        source_variant: Variant::OXGN,
-        variant_property: VariantProperty::Gas,
-        flags: FLAG_BURNS | FLAG_IGNITES,
-        base_temperature: 22.,
-        name: "OXGN",
-    },
-    // 9 HYGN
-    VariantType {
-        weight: 0,
-        strength: 0,
-        color: HYDROGEN_COLOR,
-        source_variant: Variant::HYGN,
-        variant_property: VariantProperty::Gas,
-        flags: FLAG_BURNS | FLAG_IGNITES,
-        base_temperature: 22.,
-        name: "HYGN",
-    },
-    // 10 HELM
-    VariantType {
-        weight: 0,
-        strength: 0,
-        color: HELIUM_COLOR,
-        source_variant: Variant::HELM,
-        variant_property: VariantProperty::Gas,
-        flags: 0,
-        base_temperature: 22.,
-        name: "HELM",
-    },
-    // 11 CARB
-    VariantType {
-        weight: 0,
-        strength: 0,
-        color: // black but not too black because the background is black
-        CARBON_COLOR,
-        source_variant: Variant::CARB,
-        variant_property: VariantProperty::Powder,
-        flags: 0,
-        base_temperature: 22.,
-        name: "CARB",
-    },
-    // 12 NITR
-    VariantType {
-        weight: 0,
-        strength: 0,
-        color: NITROGEN_COLOR,
-        source_variant: Variant::NITR,
-        variant_property: VariantProperty::Gas,
-        flags: 0,
-        base_temperature: 22.,
-        name: "NITR",
-    },
-    // 13 IRON
-    VariantType {
-        weight: 0,
-        strength: 0,
-        color: IRON_COLOR,
-        source_variant: Variant::IRON,
-        variant_property: VariantProperty::Powder,
-        flags: 0,
-        base_temperature: 22.,
-        name: "IRON",
-    },
-    // 14 CO2
-    VariantType {
-        weight: 0,
-        strength: 0,
-        color: CO2_COLOR,
-        source_variant: Variant::CO2,
-        variant_property: VariantProperty::Gas,
-        flags: 0,
-        base_temperature: 22.,
-        name: "CO2",
-    },
-    // 15 WTVP
-    VariantType {
-        weight: 0,
-        strength: 0,
-        color: STEAM_COLOR,
-        source_variant: Variant::WTVP,
-        variant_property: VariantProperty::Gas,
-        flags: 0,
-        base_temperature: 22.,
-        name: "WTVP",
-    },
-    // 16 GOL\
-    VariantType {
-        weight: 0,
-        strength: 16,
-        color: ParticleColor {
-            r: 255,
-            g: 255,
-            b: 255,
-            a: 255,
-        },
-        source_variant: Variant::GOL,
-        variant_property: VariantProperty::Solid,
-        flags: 0,
-        base_temperature: 22.,
-        name: "GOL",
-    },
-];
+    source_variant: Variant::GOL,
+    variant_property: VariantProperty::Solid,
+    flags: 0,
+    base_temperature: 22.,
+    name: "GOL",
+};
+
+pub const GLASS: VariantType = VariantType {
+    weight: 0,
+    strength: 0,
+    color: GLASS_COLOR,
+    source_variant: Variant::Glass,
+    variant_property: VariantProperty::Solid,
+    flags: 0,
+    base_temperature: 22.,
+    name: "GLASS",
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ParticleColor {
@@ -242,6 +290,17 @@ pub struct ParticleColor {
     pub g: u8,
     pub b: u8,
     pub a: u8,
+}
+
+impl ParticleColor {
+    pub fn from_rgba(color: (u8, u8, u8, u8)) -> ParticleColor {
+        ParticleColor {
+            r: color.0,
+            g: color.1,
+            b: color.2,
+            a: color.3,
+        }
+    }
 }
 
 pub struct HSV {
@@ -319,6 +378,56 @@ impl ParticleColor {
         (self.a as u32) << 24 | (self.r as u32) << 16 | (self.g as u32) << 8 | self.b as u32
     }
 
+    pub fn blend(&self, other: &ParticleColor) -> ParticleColor {
+        let mut res = ParticleColor {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 0,
+        };
+
+        let alpha = other.a as f32 / 255.;
+        res.r = (self.r as f32 * alpha + other.r as f32 * (1. - alpha)) as u8;
+        res.g = (self.g as f32 * alpha + other.g as f32 * (1. - alpha)) as u8;
+        res.b = (self.b as f32 * alpha + other.b as f32 * (1. - alpha)) as u8;
+        res.a = 255;
+
+        res
+    }
+
+    pub fn inverse(&self) -> ParticleColor {
+        ParticleColor {
+            r: 255 - self.r,
+            g: 255 - self.g,
+            b: 255 - self.b,
+            a: 255,
+        }
+    }
+
+    pub fn fire_color(&self) -> ParticleColor {
+        let mut res = ParticleColor {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 0,
+        };
+
+        let alpha = self.a as f32 / 255.;
+        res.r = (self.r as f32 * alpha + 255. * (1. - alpha)) as u8;
+        res.g = (self.g as f32 * alpha + 255. * (1. - alpha)) as u8;
+        res.b = (self.b as f32 * alpha + 0. * (1. - alpha)) as u8;
+        res.a = 255;
+
+        res
+    }
+
+    pub fn darken_by_strength(&mut self, strength: u8) {
+        let factor = strength as f32 / 255.;
+        self.r = (self.r as f32 * (1. - factor)) as u8;
+        self.g = (self.g as f32 * (1. - factor)) as u8;
+        self.b = (self.b as f32 * (1. - factor)) as u8;
+    }
+
     // whiten based on given temperature value
     pub fn whiten(&mut self, temperature: f32) {
         if temperature < 20. {
@@ -335,6 +444,34 @@ impl ParticleColor {
         self.r = (self.r as f32 * (1. - white_factor) + 255. * white_factor) as u8;
         self.g = (self.g as f32 * (1. - white_factor) + 255. * white_factor) as u8;
         self.b = (self.b as f32 * (1. - white_factor) + 255. * white_factor) as u8;
+    }
+
+    pub fn melting(&mut self, temperature: f32) -> ParticleColor {
+        // orangish color
+        let mut res = ParticleColor {
+            r: 255,
+            g: 128,
+            b: 0,
+            a: 255,
+        };
+
+        // if temperature is below melting point, dont change color
+        if temperature < 1000. {
+            return *self;
+        }
+
+        // temperature must be above 900 C for this to happen gradually from original color to white
+        // dont just set to 255, gradually increase above 900C thesh
+        let mut melt_factor = (temperature - 1000.) / 1000.;
+        if melt_factor > 1. {
+            melt_factor = 1.;
+        }
+
+        res.r = (self.r as f32 * (1. - melt_factor) + 255. * melt_factor) as u8;
+        res.g = (self.g as f32 * (1. - melt_factor) + 128. * melt_factor) as u8;
+        res.b = (self.b as f32 * (1. - melt_factor) + 0. * melt_factor) as u8;
+
+        res
     }
 
     pub fn to_rgba8(&self) -> (u8, u8, u8, u8) {
