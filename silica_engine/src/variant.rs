@@ -27,7 +27,7 @@ pub static EMPTY_LL: Particle = Particle {
 };
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Variant {
     Empty = 0,
     Wall = 1,

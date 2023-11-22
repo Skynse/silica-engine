@@ -8,22 +8,23 @@ use crate::{
     api::API,
     particle::{self, Particle},
     variant::{Variant, EMPTY_CELL},
-    variant_type, Serialize,
+    variant_type,
 };
 
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use variant_type::{VariantProperty, VariantType, EMPTY, FLAG_ALIVE};
 
 pub const GRAVITY: f32 = 10f32;
 pub const SPREAD_FACTOR: f32 = 0.1f32;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Environment {
     pub pressure: f32,
     pub ambient_temperature: f32,
     pub ambient_pressure: f32,
 }
-
+#[derive(Serialize, Deserialize)]
 pub struct World {
     pub(crate) particles: Vec<Particle>,
     pub environment: Vec<Environment>,
@@ -42,41 +43,6 @@ impl Default for World {
     }
 }
 
-impl Serialize for World {
-    fn serialize(&self) -> Vec<u8> {
-        let mut res = vec![];
-        res.extend_from_slice(&self.generation.to_le_bytes());
-
-        for particle in self.particles.iter() {
-            res.extend_from_slice(&particle.serialize());
-        }
-        res
-    }
-
-    fn deserialize(bytes: &[u8]) -> Self {
-        let mut generation_bytes = [0; 1];
-
-        generation_bytes.copy_from_slice(&bytes[8..9]);
-
-        let generation = u8::from_le_bytes(generation_bytes);
-
-        let mut particles = Vec::new();
-        for i in 9..bytes.len() {
-            let mut particle_bytes = [0; 36];
-            particle_bytes.copy_from_slice(&bytes[i..i + 36]);
-            particles.push(Particle::deserialize(&particle_bytes));
-        }
-
-        Self {
-            particles,
-            environment: vec![],
-            generation,
-            cleared: false,
-            ..Default::default()
-        }
-    }
-}
-
 impl World {
     pub fn save_to_slc(&mut self, path: &str) {
         let mut p = String::from(path);
@@ -85,11 +51,16 @@ impl World {
         if !p.ends_with(".slc") {
             p.push_str(".slc");
         }
-        println!("saving to {}.slc", path);
 
-        let mut w =
-            brotli::CompressorWriter::new(BufWriter::new(File::create(p).unwrap()), 4096, 11, 22);
-        w.write_all(&self.serialize()).unwrap();
+        let mut encoder = brotli::CompressorWriter::new(File::create(p).unwrap(), 4096, 11, 22);
+        let mut buf = vec![];
+        // serialize the entire world
+        buf.extend_from_slice(&bincode::serialize(self).unwrap());
+
+        encoder.write_all(buf.as_mut()).unwrap();
+        encoder.flush().unwrap();
+
+        println!("saving to {}.slc", path);
     }
 
     pub fn load_from_slc(&mut self, path: &str) {
@@ -97,15 +68,9 @@ impl World {
         let mut decoder = brotli::Decompressor::new(File::open(path).unwrap(), 4096);
         let mut buf = vec![];
         decoder.read_to_end(buf.as_mut()).unwrap();
-        let mut i = 0;
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let idx = self.get_idx(x, y);
-                let particle = Particle::deserialize(&buf[i..i + 36]);
-                self.particles[idx] = particle;
-                i += 36;
-            }
-        }
+
+        let world: World = bincode::deserialize(&buf).unwrap();
+        *self = world;
     }
     pub fn save(&self, path: &str) {
         let mut p = String::from(path);

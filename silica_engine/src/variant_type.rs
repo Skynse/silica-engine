@@ -1,9 +1,11 @@
+use serde::{Deserialize, Serialize};
+
 use crate::variant::Variant;
 
 pub const VARIANT_COUNT: usize = 18;
-use crate::{colors::*, Serialize};
+use crate::colors::*;
 
-#[derive(PartialEq, Copy, Clone, Debug)]
+#[derive(PartialEq, Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct VariantType {
     pub weight: u8,
     pub color: ParticleColor,
@@ -12,61 +14,7 @@ pub struct VariantType {
     pub base_temperature: f32,
     pub variant_property: VariantProperty,
     pub flags: u8,
-    pub name: &'static str,
 } // flags
-
-impl Serialize for VariantType {
-    fn serialize(&self) -> Vec<u8> {
-        let mut res = vec![];
-        res.extend_from_slice(&self.weight.to_le_bytes());
-        res.extend_from_slice(&self.color.serialize());
-        res.extend_from_slice(&self.strength.to_le_bytes());
-        res.extend_from_slice(&(self.source_variant as u8).to_le_bytes());
-        res.extend_from_slice(&self.base_temperature.to_le_bytes());
-        res.extend_from_slice(&(self.variant_property as u8).to_le_bytes());
-        res.extend_from_slice(&self.flags.to_le_bytes());
-        res.extend_from_slice(&self.name.as_bytes());
-        res
-    }
-
-    fn deserialize(bytes: &[u8]) -> Self {
-        let mut weight_bytes = [0; 1];
-        let mut color_bytes = [0; 4];
-        let mut strength_bytes = [0; 1];
-        let mut source_variant_bytes = [0; 1];
-        let mut base_temperature_bytes = [0; 4];
-        let mut variant_property_bytes = [0; 1];
-        let mut flags_bytes = [0; 1];
-        let mut name_bytes = [0; 16];
-
-        weight_bytes.copy_from_slice(&bytes[0..1]);
-        color_bytes.copy_from_slice(&bytes[1..5]);
-        strength_bytes.copy_from_slice(&bytes[5..6]);
-        source_variant_bytes.copy_from_slice(&bytes[6..7]);
-        base_temperature_bytes.copy_from_slice(&bytes[7..11]);
-        variant_property_bytes.copy_from_slice(&bytes[11..12]);
-        flags_bytes.copy_from_slice(&bytes[12..13]);
-        name_bytes.copy_from_slice(&bytes[13..29]);
-
-        Self {
-            weight: u8::from_le_bytes(weight_bytes),
-            // need
-            color: ParticleColor::from_rgba((
-                color_bytes[0],
-                color_bytes[1],
-                color_bytes[2],
-                color_bytes[3],
-            )),
-            strength: u8::from_le_bytes(strength_bytes),
-            // convert source variant bytes to int for variant
-            source_variant: Variant::from_u8(u8::from_le_bytes(source_variant_bytes)),
-            base_temperature: f32::from_le_bytes(base_temperature_bytes),
-            variant_property: VariantProperty::from_u8(u8::from_le_bytes(variant_property_bytes)),
-            flags: u8::from_le_bytes(flags_bytes),
-            name: "sdfs",
-        }
-    }
-}
 
 pub const FLAG_BURNS: u8 = 0b00000001;
 pub const FLAG_EXPLOSIVE: u8 = 0b00000010;
@@ -103,7 +51,7 @@ impl VariantType {
     }
 }
 
-#[derive(PartialEq, Eq, Copy, Clone, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum VariantProperty {
     Solid,
     Powder,
@@ -129,19 +77,6 @@ impl VariantProperty {
             VariantProperty::Liquid => 2,
             VariantProperty::Gas => 3,
         }
-    }
-}
-
-impl Serialize for VariantProperty {
-    fn serialize(&self) -> Vec<u8> {
-        let mut res = vec![];
-        res.extend_from_slice(&(*self as u8).to_le_bytes());
-        res
-    }
-
-    fn deserialize(bytes: &[u8]) -> Self {
-        let mut bytes = [0; 1];
-        Self::from_u8(bytes[0])
     }
 }
 
@@ -200,7 +135,6 @@ pub const EMPTY: VariantType = VariantType {
     flags: 0,
     variant_property: VariantProperty::Solid,
     base_temperature: 22.,
-    name: "Empty",
 };
 
 pub const EMPTY_L: VariantType = VariantType {
@@ -211,7 +145,6 @@ pub const EMPTY_L: VariantType = VariantType {
     flags: FLAG_ALIVE,
     variant_property: VariantProperty::Solid,
     base_temperature: 22.,
-    name: "Empty",
 };
 
 pub const WALL: VariantType = VariantType {
@@ -222,7 +155,6 @@ pub const WALL: VariantType = VariantType {
     flags: FLAG_IMMUTABLE,
     variant_property: VariantProperty::Solid,
     base_temperature: 22.,
-    name: "Wall",
 };
 
 pub const SAND: VariantType = VariantType {
@@ -233,7 +165,6 @@ pub const SAND: VariantType = VariantType {
     variant_property: VariantProperty::Powder,
     flags: 0,
     base_temperature: 22.,
-    name: "Sand",
 };
 
 pub const WATER: VariantType = VariantType {
@@ -244,7 +175,6 @@ pub const WATER: VariantType = VariantType {
     variant_property: VariantProperty::Liquid,
     flags: 0,
     base_temperature: 22.,
-    name: "Water",
 };
 
 pub const FIRE: VariantType = VariantType {
@@ -255,7 +185,6 @@ pub const FIRE: VariantType = VariantType {
     variant_property: VariantProperty::Gas,
     flags: FLAG_BURNS,
     base_temperature: 422.,
-    name: "Fire",
 };
 
 pub const SMOKE: VariantType = VariantType {
@@ -266,7 +195,6 @@ pub const SMOKE: VariantType = VariantType {
     variant_property: VariantProperty::Gas,
     flags: 0,
     base_temperature: 22.,
-    name: "Smoke",
 };
 
 pub const SALT: VariantType = VariantType {
@@ -277,7 +205,6 @@ pub const SALT: VariantType = VariantType {
     variant_property: VariantProperty::Powder,
     flags: 0,
     base_temperature: 22.,
-    name: "Salt",
 };
 
 pub const SALT_WATER: VariantType = VariantType {
@@ -288,7 +215,6 @@ pub const SALT_WATER: VariantType = VariantType {
     variant_property: VariantProperty::Liquid,
     flags: 0,
     base_temperature: 22.,
-    name: "SaltWater",
 };
 
 pub const OXGN: VariantType = VariantType {
@@ -299,7 +225,6 @@ pub const OXGN: VariantType = VariantType {
     variant_property: VariantProperty::Gas,
     flags: FLAG_BURNS | FLAG_IGNITES,
     base_temperature: 22.,
-    name: "OXGN",
 };
 
 pub const HYGN: VariantType = VariantType {
@@ -310,7 +235,6 @@ pub const HYGN: VariantType = VariantType {
     variant_property: VariantProperty::Gas,
     flags: FLAG_BURNS | FLAG_IGNITES,
     base_temperature: 22.,
-    name: "HYGN",
 };
 
 pub const HELM: VariantType = VariantType {
@@ -321,7 +245,6 @@ pub const HELM: VariantType = VariantType {
     variant_property: VariantProperty::Gas,
     flags: 0,
     base_temperature: 22.,
-    name: "HELM",
 };
 
 pub const CARB: VariantType = VariantType {
@@ -332,7 +255,6 @@ pub const CARB: VariantType = VariantType {
     variant_property: VariantProperty::Powder,
     flags: 0,
     base_temperature: 22.,
-    name: "CARB",
 };
 
 pub const NITR: VariantType = VariantType {
@@ -343,7 +265,6 @@ pub const NITR: VariantType = VariantType {
     variant_property: VariantProperty::Gas,
     flags: 0,
     base_temperature: 22.,
-    name: "NITR",
 };
 
 pub const IRON: VariantType = VariantType {
@@ -354,7 +275,6 @@ pub const IRON: VariantType = VariantType {
     variant_property: VariantProperty::Solid,
     flags: 0,
     base_temperature: 22.,
-    name: "IRON",
 };
 
 pub const CO2: VariantType = VariantType {
@@ -365,7 +285,6 @@ pub const CO2: VariantType = VariantType {
     variant_property: VariantProperty::Gas,
     flags: 0,
     base_temperature: 22.,
-    name: "CO2",
 };
 
 pub const WTVP: VariantType = VariantType {
@@ -376,7 +295,6 @@ pub const WTVP: VariantType = VariantType {
     variant_property: VariantProperty::Gas,
     flags: 0,
     base_temperature: 22.,
-    name: "WTVP",
 };
 
 pub const GOL: VariantType = VariantType {
@@ -392,7 +310,6 @@ pub const GOL: VariantType = VariantType {
     variant_property: VariantProperty::Solid,
     flags: 0,
     base_temperature: 22.,
-    name: "GOL",
 };
 
 pub const GLASS: VariantType = VariantType {
@@ -403,37 +320,14 @@ pub const GLASS: VariantType = VariantType {
     variant_property: VariantProperty::Solid,
     flags: 0,
     base_temperature: 22.,
-    name: "GLASS",
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParticleColor {
     pub r: u8,
     pub g: u8,
     pub b: u8,
     pub a: u8,
-}
-
-impl Serialize for ParticleColor {
-    fn serialize(&self) -> Vec<u8> {
-        let mut res = vec![];
-        res.extend_from_slice(&self.r.to_le_bytes());
-        res.extend_from_slice(&self.g.to_le_bytes());
-        res.extend_from_slice(&self.b.to_le_bytes());
-        res.extend_from_slice(&self.a.to_le_bytes());
-        res
-    }
-
-    fn deserialize(data: &[u8]) -> Self {
-        let color = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
-        let r_bytes = color.to_le_bytes();
-        Self {
-            r: r_bytes[0],
-            g: r_bytes[1],
-            b: r_bytes[2],
-            a: r_bytes[3],
-        }
-    }
 }
 
 impl ParticleColor {

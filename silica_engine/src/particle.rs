@@ -1,8 +1,10 @@
-use crate::{api::API, prelude::ParticleColor, variant::Variant, variant_type, Serialize};
+use crate::{api::API, prelude::ParticleColor, variant::Variant, variant_type};
+
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use variant_type::{get_variant, VariantType};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 
 pub struct Particle {
     pub variant_type: VariantType,
@@ -15,77 +17,12 @@ pub struct Particle {
     pub temperature: f32,
 }
 
-impl Serialize for Particle {
-    // for primitive types, we can just use the default implementation
-    // bool needs to be int first
-    fn serialize(&self) -> Vec<u8> {
-        let mut res = vec![];
-        res.extend_from_slice(&self.variant_type.serialize());
-        res.extend_from_slice(&self.ra.to_le_bytes());
-        res.extend_from_slice(&self.rb.to_le_bytes());
-        res.extend_from_slice(&self.clock.to_le_bytes());
-        res.extend_from_slice(&self.strength.to_le_bytes());
-        res.extend_from_slice(&(self.modified as i32).to_le_bytes());
-        res.extend_from_slice(&self.velocity.serialize());
-        res.extend_from_slice(&self.temperature.to_le_bytes());
-        res
-    }
-
-    fn deserialize(bytes: &[u8]) -> Self {
-        let mut variant_type_bytes = [0; 4];
-        let mut ra_bytes = [0; 4];
-        let mut rb_bytes = [0; 4];
-        let mut clock_bytes = [0; 4];
-        let mut strength_bytes = [0; 4];
-        let mut modified_bytes = [0; 4];
-        let mut velocity_bytes = [0; 8];
-        let mut temperature_bytes = [0; 4];
-        variant_type_bytes.copy_from_slice(&bytes[0..4]);
-        ra_bytes.copy_from_slice(&bytes[4..8]);
-        rb_bytes.copy_from_slice(&bytes[8..12]);
-        clock_bytes.copy_from_slice(&bytes[12..16]);
-        strength_bytes.copy_from_slice(&bytes[16..20]);
-        modified_bytes.copy_from_slice(&bytes[20..24]);
-        velocity_bytes.copy_from_slice(&bytes[24..32]);
-        temperature_bytes.copy_from_slice(&bytes[32..36]);
-
-        Self {
-            variant_type: VariantType::deserialize(&variant_type_bytes),
-            ra: ra_bytes[0],
-            rb: rb_bytes[0],
-            clock: clock_bytes[0],
-            strength: strength_bytes[0],
-            modified: i32::from_le_bytes(modified_bytes) != 0,
-            velocity: Velocity::deserialize(&velocity_bytes),
-            temperature: f32::from_le_bytes(temperature_bytes),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Velocity {
     pub x: f32,
     pub y: f32,
 }
 
-impl Serialize for Velocity {
-    fn serialize(&self) -> Vec<u8> {
-        let mut res = vec![];
-        res.extend_from_slice(&self.x.to_le_bytes());
-        res.extend_from_slice(&self.y.to_le_bytes());
-        res
-    }
-    fn deserialize(bytes: &[u8]) -> Self {
-        let mut x_bytes = [0; 4];
-        let mut y_bytes = [0; 4];
-        x_bytes.copy_from_slice(&bytes[0..4]);
-        y_bytes.copy_from_slice(&bytes[4..8]);
-        Self {
-            x: f32::from_le_bytes(x_bytes),
-            y: f32::from_le_bytes(y_bytes),
-        }
-    }
-}
 impl Default for Particle {
     fn default() -> Self {
         Self {
