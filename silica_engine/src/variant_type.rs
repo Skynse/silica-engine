@@ -1,7 +1,7 @@
 use crate::variant::Variant;
 
 pub const VARIANT_COUNT: usize = 18;
-use crate::{colors::*};
+use crate::{colors::*, Serialize};
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub struct VariantType {
@@ -14,6 +14,59 @@ pub struct VariantType {
     pub flags: u8,
     pub name: &'static str,
 } // flags
+
+impl Serialize for VariantType {
+    fn serialize(&self) -> Vec<u8> {
+        let mut res = vec![];
+        res.extend_from_slice(&self.weight.to_le_bytes());
+        res.extend_from_slice(&self.color.serialize());
+        res.extend_from_slice(&self.strength.to_le_bytes());
+        res.extend_from_slice(&(self.source_variant as u8).to_le_bytes());
+        res.extend_from_slice(&self.base_temperature.to_le_bytes());
+        res.extend_from_slice(&(self.variant_property as u8).to_le_bytes());
+        res.extend_from_slice(&self.flags.to_le_bytes());
+        res.extend_from_slice(&self.name.as_bytes());
+        res
+    }
+
+    fn deserialize(bytes: &[u8]) -> Self {
+        let mut weight_bytes = [0; 1];
+        let mut color_bytes = [0; 4];
+        let mut strength_bytes = [0; 1];
+        let mut source_variant_bytes = [0; 1];
+        let mut base_temperature_bytes = [0; 4];
+        let mut variant_property_bytes = [0; 1];
+        let mut flags_bytes = [0; 1];
+        let mut name_bytes = [0; 16];
+
+        weight_bytes.copy_from_slice(&bytes[0..1]);
+        color_bytes.copy_from_slice(&bytes[1..5]);
+        strength_bytes.copy_from_slice(&bytes[5..6]);
+        source_variant_bytes.copy_from_slice(&bytes[6..7]);
+        base_temperature_bytes.copy_from_slice(&bytes[7..11]);
+        variant_property_bytes.copy_from_slice(&bytes[11..12]);
+        flags_bytes.copy_from_slice(&bytes[12..13]);
+        name_bytes.copy_from_slice(&bytes[13..29]);
+
+        Self {
+            weight: u8::from_le_bytes(weight_bytes),
+            // need
+            color: ParticleColor::from_rgba((
+                color_bytes[0],
+                color_bytes[1],
+                color_bytes[2],
+                color_bytes[3],
+            )),
+            strength: u8::from_le_bytes(strength_bytes),
+            // convert source variant bytes to int for variant
+            source_variant: Variant::from_u8(u8::from_le_bytes(source_variant_bytes)),
+            base_temperature: f32::from_le_bytes(base_temperature_bytes),
+            variant_property: VariantProperty::from_u8(u8::from_le_bytes(variant_property_bytes)),
+            flags: u8::from_le_bytes(flags_bytes),
+            name: "sdfs",
+        }
+    }
+}
 
 pub const FLAG_BURNS: u8 = 0b00000001;
 pub const FLAG_EXPLOSIVE: u8 = 0b00000010;
@@ -58,6 +111,40 @@ pub enum VariantProperty {
     Gas,
 }
 
+impl VariantProperty {
+    pub fn from_u8(val: u8) -> VariantProperty {
+        match val {
+            0 => VariantProperty::Solid,
+            1 => VariantProperty::Powder,
+            2 => VariantProperty::Liquid,
+            3 => VariantProperty::Gas,
+            _ => VariantProperty::Solid,
+        }
+    }
+
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            VariantProperty::Solid => 0,
+            VariantProperty::Powder => 1,
+            VariantProperty::Liquid => 2,
+            VariantProperty::Gas => 3,
+        }
+    }
+}
+
+impl Serialize for VariantProperty {
+    fn serialize(&self) -> Vec<u8> {
+        let mut res = vec![];
+        res.extend_from_slice(&(*self as u8).to_le_bytes());
+        res
+    }
+
+    fn deserialize(bytes: &[u8]) -> Self {
+        let mut bytes = [0; 1];
+        Self::from_u8(bytes[0])
+    }
+}
+
 pub fn get_color(variant: Variant) {
     match variant {
         Variant::Empty => EMPTY_COLOR,
@@ -81,12 +168,47 @@ pub fn get_color(variant: Variant) {
     };
 }
 
+pub fn get_variant(color: ParticleColor) -> Variant {
+    let c = match color {
+        EMPTY_COLOR => Variant::Empty,
+        WALL_COLOR => Variant::Wall,
+        SAND_COLOR => Variant::Sand,
+        WATER_COLOR => Variant::Water,
+        FIRE_COLOR => Variant::Fire,
+        SMOKE_COLOR => Variant::Smoke,
+        SALT_COLOR => Variant::Salt,
+        SALT_WATER_COLOR => Variant::SaltWater,
+        OXYGEN_COLOR => Variant::OXGN,
+        HYDROGEN_COLOR => Variant::HYGN,
+        HELIUM_COLOR => Variant::HELM,
+        CARBON_COLOR => Variant::CARB,
+        NITROGEN_COLOR => Variant::NITR,
+        IRON_COLOR => Variant::IRON,
+        CO2_COLOR => Variant::CO2,
+        STEAM_COLOR => Variant::WTVP,
+        GLASS_COLOR => Variant::Glass,
+        _ => Variant::Empty,
+    };
+    c
+}
+
 pub const EMPTY: VariantType = VariantType {
     weight: 0,
     strength: 0,
     color: EMPTY_COLOR,
     source_variant: Variant::Empty,
     flags: 0,
+    variant_property: VariantProperty::Solid,
+    base_temperature: 22.,
+    name: "Empty",
+};
+
+pub const EMPTY_L: VariantType = VariantType {
+    weight: 0,
+    strength: 0,
+    color: EMPTY_COLOR,
+    source_variant: Variant::Empty,
+    flags: FLAG_ALIVE,
     variant_property: VariantProperty::Solid,
     base_temperature: 22.,
     name: "Empty",
@@ -292,6 +414,28 @@ pub struct ParticleColor {
     pub a: u8,
 }
 
+impl Serialize for ParticleColor {
+    fn serialize(&self) -> Vec<u8> {
+        let mut res = vec![];
+        res.extend_from_slice(&self.r.to_le_bytes());
+        res.extend_from_slice(&self.g.to_le_bytes());
+        res.extend_from_slice(&self.b.to_le_bytes());
+        res.extend_from_slice(&self.a.to_le_bytes());
+        res
+    }
+
+    fn deserialize(data: &[u8]) -> Self {
+        let color = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+        let r_bytes = color.to_le_bytes();
+        Self {
+            r: r_bytes[0],
+            g: r_bytes[1],
+            b: r_bytes[2],
+            a: r_bytes[3],
+        }
+    }
+}
+
 impl ParticleColor {
     pub fn from_rgba(color: (u8, u8, u8, u8)) -> ParticleColor {
         ParticleColor {
@@ -300,6 +444,14 @@ impl ParticleColor {
             b: color.2,
             a: color.3,
         }
+    }
+
+    pub fn distance(&self, other: &ParticleColor) -> f32 {
+        let r = self.r as f32 - other.r as f32;
+        let g = self.g as f32 - other.g as f32;
+        let b = self.b as f32 - other.b as f32;
+
+        (r * r + g * g + b * b).sqrt()
     }
 }
 

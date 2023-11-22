@@ -37,3 +37,8 @@ pub const RUST: (u8, u8, u8) = (183, 65, 14);
 pub const IRON: (u8, u8, u8) = (183, 65, 14);
 
 pub const MAX_TEMP: f32 = 9275.0;
+
+pub trait Serialize {
+    fn serialize(&self) -> Vec<u8>;
+    fn deserialize(data: &[u8]) -> Self;
+}

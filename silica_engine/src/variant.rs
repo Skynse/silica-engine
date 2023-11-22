@@ -2,9 +2,21 @@ use std::fmt::Display;
 
 pub use crate::{api::API, particle::Particle, variant_type::VariantProperty};
 use crate::{particle::Velocity, variant_type::*};
+use serde::{Deserialize, Serialize};
 
 pub static EMPTY_CELL: Particle = Particle {
     variant_type: EMPTY,
+    clock: 0,
+    strength: 0,
+    modified: false,
+    velocity: Velocity { x: 0., y: 0. },
+    temperature: 0.,
+    ra: 0,
+    rb: 0,
+};
+
+pub static EMPTY_LL: Particle = Particle {
+    variant_type: EMPTY_L,
     clock: 0,
     strength: 0,
     modified: false,
@@ -52,6 +64,29 @@ impl Display for Variant {
 }
 
 impl Variant {
+    pub fn from_u8(n: u8) -> Variant {
+        match n {
+            0 => Variant::Empty,
+            1 => Variant::Wall,
+            2 => Variant::Sand,
+            3 => Variant::Water,
+            4 => Variant::Fire,
+            5 => Variant::Smoke,
+            6 => Variant::Salt,
+            7 => Variant::SaltWater,
+            8 => Variant::OXGN,
+            9 => Variant::HYGN,
+            10 => Variant::HELM,
+            11 => Variant::CARB,
+            12 => Variant::NITR,
+            13 => Variant::IRON,
+            14 => Variant::CO2,
+            15 => Variant::WTVP,
+            16 => Variant::GOL,
+            17 => Variant::Glass,
+            _ => Variant::Empty,
+        }
+    }
     pub fn is_empty(&self) -> bool {
         *self == Variant::Empty
     }
@@ -164,16 +199,28 @@ fn update_glass(_particle: Particle, _api: API) -> bool {
 }
 
 fn update_salt(particle: Particle, mut api: API) -> bool {
-    let mut nbrs = api.get_nbrs();
+    // swap down with water if water above
+    let top = api.get(0, -1);
+    let bottom = api.get(0, 1);
 
-    for nbr in nbrs.iter_mut() {
-        if nbr.get_variant() == Variant::Water {
-            if nbr.dissolve_to(SALT_WATER) {
-                api.set(0, 0, *nbr);
-                api.set(0, 1, particle);
-            }
-            return true;
-        }
+    if top.get_variant() == Variant::Water && bottom.get_variant() == Variant::Empty {
+        api.set(
+            0,
+            -1,
+            Particle {
+                variant_type: EMPTY,
+                ..top
+            },
+        );
+        api.set(
+            0,
+            1,
+            Particle {
+                variant_type: SALT_WATER,
+                ..particle
+            },
+        );
+        return true;
     }
 
     false
@@ -382,7 +429,7 @@ fn update_gol(particle: Particle, mut api: API) -> bool {
     }
 
     if alive_nbrs < 2 || alive_nbrs > 3 {
-        api.set(0, 0, EMPTY_CELL);
+        api.set(0, 0, EMPTY_LL);
     }
 
     // get self temperature and die

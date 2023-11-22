@@ -1,14 +1,18 @@
-use std::{collections::HashSet, io::BufWriter, path::Path};
-
-use variant_type::{VariantProperty, VariantType, EMPTY};
+use std::{
+    collections::HashSet,
+    io::{BufWriter, Read, Write},
+    path::Path,
+};
 
 use crate::{
     api::API,
     particle::{self, Particle},
     variant::{Variant, EMPTY_CELL},
-    variant_type,
+    variant_type, Serialize,
 };
+
 use std::fs::File;
+use variant_type::{VariantProperty, VariantType, EMPTY, FLAG_ALIVE};
 
 pub const GRAVITY: f32 = 10f32;
 pub const SPREAD_FACTOR: f32 = 0.1f32;
@@ -19,6 +23,7 @@ pub struct Environment {
     pub ambient_temperature: f32,
     pub ambient_pressure: f32,
 }
+
 pub struct World {
     pub(crate) particles: Vec<Particle>,
     pub environment: Vec<Environment>,
@@ -37,9 +42,74 @@ impl Default for World {
     }
 }
 
+impl Serialize for World {
+    fn serialize(&self) -> Vec<u8> {
+        let mut res = vec![];
+        res.extend_from_slice(&self.generation.to_le_bytes());
+
+        for particle in self.particles.iter() {
+            res.extend_from_slice(&particle.serialize());
+        }
+        res
+    }
+
+    fn deserialize(bytes: &[u8]) -> Self {
+        let mut generation_bytes = [0; 1];
+
+        generation_bytes.copy_from_slice(&bytes[8..9]);
+
+        let generation = u8::from_le_bytes(generation_bytes);
+
+        let mut particles = Vec::new();
+        for i in 9..bytes.len() {
+            let mut particle_bytes = [0; 36];
+            particle_bytes.copy_from_slice(&bytes[i..i + 36]);
+            particles.push(Particle::deserialize(&particle_bytes));
+        }
+
+        Self {
+            particles,
+            environment: vec![],
+            generation,
+            cleared: false,
+            ..Default::default()
+        }
+    }
+}
+
 impl World {
-    pub fn save(&self) {
-        let _documents_dir = Path::new("save.png");
+    pub fn save_to_slc(&mut self, path: &str) {
+        let mut p = String::from(path);
+
+        // add slc extension if not present
+        if !p.ends_with(".slc") {
+            p.push_str(".slc");
+        }
+        println!("saving to {}.slc", path);
+
+        let mut w =
+            brotli::CompressorWriter::new(BufWriter::new(File::create(p).unwrap()), 4096, 11, 22);
+        w.write_all(&self.serialize()).unwrap();
+    }
+
+    pub fn load_from_slc(&mut self, path: &str) {
+        println!("loaded from {}", path);
+        let mut decoder = brotli::Decompressor::new(File::open(path).unwrap(), 4096);
+        let mut buf = vec![];
+        decoder.read_to_end(buf.as_mut()).unwrap();
+        let mut i = 0;
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let idx = self.get_idx(x, y);
+                let particle = Particle::deserialize(&buf[i..i + 36]);
+                self.particles[idx] = particle;
+                i += 36;
+            }
+        }
+    }
+    pub fn save(&self, path: &str) {
+        let mut p = String::from(path);
+
         let mut image = Vec::new();
         for particle in self.particles.iter() {
             let color = particle::particle_to_color(*particle).to_rgb8();
@@ -48,12 +118,38 @@ impl World {
             image.push(color.2);
         }
 
-        let ref mut w = BufWriter::new(File::create("save.png").unwrap());
+        // add png extension if not present
+        if !p.ends_with(".png") {
+            p.push_str(".png");
+        }
+
+        let ref mut w = BufWriter::new(File::create(p).unwrap());
         let mut encoder = png::Encoder::new(w, self.width as u32, self.height as u32);
         encoder.set_color(png::ColorType::Rgb);
         encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder.write_header().unwrap();
         writer.write_image_data(&image).unwrap(); // Save
+        println!("saving to {}.png", path);
+    }
+
+    pub fn load(&mut self, path: &str) {
+        println!("loaded from {}", path);
+        let decoder = png::Decoder::new(File::open(path).unwrap());
+        let mut reader = decoder.read_info().unwrap();
+        let mut buf = vec![0; reader.output_buffer_size()];
+        reader.next_frame(&mut buf).unwrap();
+
+        let mut i = 0;
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let idx = self.get_idx(x, y);
+                let r = buf[i];
+                let g = buf[i + 1];
+                let b = buf[i + 2];
+                self.particles[idx] = particle::color_to_particle((r, g, b));
+                i += 3;
+            }
+        }
     }
 
     pub fn tick(&mut self) {
@@ -193,6 +289,10 @@ impl World {
 
     fn update_particle(mut particle: Particle, mut api: API) -> bool {
         if particle.modified {
+            return false;
+        }
+
+        if particle.get_variant() == Variant::Empty && !particle.variant_type.has_flag(FLAG_ALIVE) {
             return false;
         }
 
